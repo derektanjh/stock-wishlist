@@ -1,6 +1,6 @@
 {
-  "updated": "2026-11-11T16:56:26Z",
+  "updated": "2026-11-11T16:59:13Z",
   "quotes": {
-    "NVDA": {"error":"Couldn't reach the price service (HTTP Error 429: Too Many Requests)"}
+    "NVDA": {"error":"Price service busy (HTTP 429). Will retry on the next update","error_kind":"unavailable"}
   }
 }
