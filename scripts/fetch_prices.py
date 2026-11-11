@@ -12,6 +12,10 @@ kept and the error is noted for the page.
 """
 import json, os, re, sys, time, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+NY = ZoneInfo("America/New_York")
+INTRA_MAX = 20  # intraday costs 1 request per stock per run; Tiingo's free plan allows ~50 an hour
 
 API = "https://api.tiingo.com/tiingo/daily/"
 IEX = "https://api.tiingo.com/iex/"
@@ -89,6 +93,21 @@ def live_prices(symbols):
     return out
 
 
+def intraday(symbol):
+    """Last 5 trading days in 15-minute steps, as [["2026-11-11T09:30", price], ...] in New York time."""
+    t = urllib.parse.quote(symbol.lower().replace(".", "-"))
+    start = (datetime.now(timezone.utc) - timedelta(days=9)).strftime("%Y-%m-%d")
+    rows = call(t + "/prices", {"startDate": start, "resampleFreq": "15min", "columns": "date,close"}, base=IEX)
+    pts = []
+    for r in rows or []:
+        if r.get("close") is None:
+            continue
+        d = datetime.fromisoformat(r["date"].replace("Z", "+00:00")).astimezone(NY)
+        pts.append([d.strftime("%Y-%m-%dT%H:%M"), round(float(r["close"]), 4)])
+    days = sorted({p[0][:10] for p in pts})[-5:]
+    return [p for p in pts if p[0][:10] in days]
+
+
 def main():
     live_only = "--live" in sys.argv
     stocks = json.load(open("stocks.json")).get("stocks", [])
@@ -127,6 +146,18 @@ def main():
         if lv and lv["time"][:10] > last_day:
             q["live"] = lv
     print(f"Live prices for {len([q for q in quotes.values() if 'live' in q])}/{len(quotes)} tickers")
+    n = 0
+    for sym, q in quotes.items():
+        if not q.get("closes") or n >= INTRA_MAX:
+            continue
+        n += 1
+        try:
+            pts = intraday(sym)
+            if len(pts) >= 2:
+                q["intraday"] = pts
+        except Exception as e:  # keep the previous intraday prices
+            print(f"{sym}: intraday unavailable ({e})", file=sys.stderr)
+    print(f"Intraday prices for {len([q for q in quotes.values() if q.get('intraday')])}/{len(quotes)} tickers")
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     lines = [f"    {json.dumps(k)}: {json.dumps(v, separators=(',', ':'))}" for k, v in quotes.items()]
     body = '{\n  "updated": "' + now + '",\n  "quotes": {\n' + ",\n".join(lines) + ("\n" if lines else "") + "  }\n}\n"

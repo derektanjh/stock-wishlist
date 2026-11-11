@@ -378,6 +378,7 @@ function bigChart(box,A){
   var up=f?[]:null,dn=f?[]:null,tl=f?[]:null;
   if(f)for(var i=0;i<n;i++){var c=f.a+f.b*i;tl.push(Math.exp(c));up.push(Math.exp(c+K*f.s));dn.push(Math.exp(c-K*f.s))}
   var ys=vals.concat(f?up.concat(dn):[]);A.s50a.concat(A.s200a).forEach(function(x){if(x!=null)ys.push(x)});
+  if(A.ref)ys.push(A.ref);
   var lo=Math.min.apply(null,ys),hi=Math.max.apply(null,ys),sp=hi-lo;
   if(A.tgt&&A.tgt>=lo-sp*0.35&&A.tgt<=hi+sp*0.35){lo=Math.min(lo,A.tgt);hi=Math.max(hi,A.tgt)} // only stretch the chart for a nearby target
   var pad=(hi-lo)*0.04||1;lo-=pad;hi+=pad;
@@ -395,22 +396,25 @@ function bigChart(box,A){
   }
   if(A.tgt&&A.tgt>=lo&&A.tgt<=hi){el('line',{x1:m.l,x2:W-m.r,y1:Y(A.tgt),y2:Y(A.tgt),stroke:'var(--l-tgt)','stroke-width':1.5,'stroke-dasharray':'6 4'},svg);var tt=el('text',{x:W-m.r-4,y:Y(A.tgt)-5,'text-anchor':'end',style:'fill:var(--l-tgt);font-weight:600'},svg);tt.textContent='Target '+fp(A.tgt)}
   else if(A.tgt){var ab=A.tgt>hi,ot=el('text',{x:W-m.r-4,y:ab?m.t+12:m.t+ih-6,'text-anchor':'end',style:'fill:var(--l-tgt);font-weight:600'},svg);ot.textContent='Target '+fp(A.tgt)+(ab?' ↑ above chart':' ↓ below chart')}
+  if(A.ref){el('line',{x1:m.l,x2:W-m.r,y1:Y(A.ref),y2:Y(A.ref),stroke:'var(--muted)','stroke-width':1.2,'stroke-dasharray':'2 4'},svg);var rt=el('text',{x:m.l+4,y:Y(A.ref)+(Y(A.ref)>m.t+ih-14?-5:14)},svg);rt.textContent=A.refLabel+' '+fp(A.ref)}
   el('path',{d:path(A.s200a),fill:'none',stroke:'var(--l-200)','stroke-width':1.6},svg);
   el('path',{d:path(A.s50a),fill:'none',stroke:'var(--l-50)','stroke-width':1.6},svg);
   if(f)el('path',{d:path(tl),fill:'none',stroke:'var(--l-trend)','stroke-width':2,'stroke-dasharray':'7 5'},svg);
   el('path',{d:path(vals),fill:'none',stroke:'var(--l-price)','stroke-width':2.2,'stroke-linejoin':'round','stroke-linecap':'round'},svg);
   el('circle',{cx:X(n-1),cy:Y(vals[n-1]),r:4,fill:'var(--card)',stroke:'var(--l-price)','stroke-width':2.2},svg);
-  // month labels
-  var lastM='',every=n>300?(narrow?6:3):n>140?(narrow?3:2):1,cnt=0,lastX=-99;
+  // x-axis labels: custom ticks (1D/1W) or months
+  if(A.ticks){var lx=-99;A.ticks.forEach(function(t){var x=X(t.i);if(x-lx<46||x<m.l+14)return;lx=x;
+    el('line',{x1:x,x2:x,y1:H-m.b,y2:H-m.b+4,stroke:'var(--line)'},svg);var tx=el('text',{x:x,y:H-7,'text-anchor':'middle'},svg);tx.textContent=t.label})}
+  else{var lastM='',every=n>300?(narrow?6:3):n>140?(narrow?3:2):1,cnt=0,lastX=-99;
   A.w.forEach(function(p,i){var mo=p[0].slice(0,7);if(mo===lastM)return;lastM=mo;if(i===0)return;if(cnt++%every)return;var x=X(i);if(x-lastX<44)return;lastX=x;
-    el('line',{x1:x,x2:x,y1:H-m.b,y2:H-m.b+4,stroke:'var(--line)'},svg);var tx=el('text',{x:x,y:H-7,'text-anchor':'middle'},svg);var mm=+mo.slice(5);tx.textContent=mm===1?mo.slice(0,4):MON[mm-1]});
+    el('line',{x1:x,x2:x,y1:H-m.b,y2:H-m.b+4,stroke:'var(--line)'},svg);var tx=el('text',{x:x,y:H-7,'text-anchor':'middle'},svg);var mm=+mo.slice(5);tx.textContent=mm===1?mo.slice(0,4):MON[mm-1]})}
   // hover
   var vline=el('line',{x1:0,x2:0,y1:m.t,y2:m.t+ih,stroke:'var(--muted)','stroke-dasharray':'2 3',visibility:'hidden'},svg);
   var dot=el('circle',{r:4,fill:'var(--l-price)',visibility:'hidden'},svg);
   var hit=el('rect',{x:m.l,y:m.t,width:iw,height:ih,fill:'transparent'},svg);
   function mv(e){var b=svg.getBoundingClientRect(),x=e.clientX-b.left,i=Math.max(0,Math.min(n-1,Math.round((x-m.l)/iw*(n-1))));
     var X0=X(i);vline.setAttribute('x1',X0);vline.setAttribute('x2',X0);vline.setAttribute('visibility','visible');dot.setAttribute('cx',X0);dot.setAttribute('cy',Y(vals[i]));dot.setAttribute('visibility','visible');
-    var h='<b>'+fdate(A.w[i][0])+'</b><i style="background:var(--l-price)"></i>Price '+fp(vals[i]);
+    var h='<b>'+(A.tipl?A.tipl(i):fdate(A.w[i][0]))+'</b><i style="background:var(--l-price)"></i>Price '+fp(vals[i]);
     if(f)h+='<br><i style="background:var(--l-trend)"></i>Trendline '+fp(tl[i])+' ('+pct(vals[i]/tl[i]-1)+')';
     if(A.s50a[i]!=null)h+='<br><i style="background:var(--l-50)"></i>50-day '+fp(A.s50a[i]);
     if(A.s200a[i]!=null)h+='<br><i style="background:var(--l-200)"></i>200-day '+fp(A.s200a[i]);
@@ -461,16 +465,37 @@ function render(){
   if(cur&&$('ovDet').classList.contains('open'))detail(cur,true);
 }
 
+/* ---------- 1D / 1W intraday view ---------- */
+var DAYN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function hm(t){var h=+t.slice(11,13),mi=t.slice(14,16);return ((h%12)||12)+(mi==='00'?'':':'+mi)+(h<12?' am':' pm')}
+function dayName(d){return DAYN[new Date(d+'T12:00:00').getDay()]}
+function intraView(A,rk){
+  var pts=(A.q&&A.q.intraday)||[];if(pts.length<2)return null;
+  var days=[];pts.forEach(function(p){var d=p[0].slice(0,10);if(days[days.length-1]!==d)days.push(d)});
+  var first=rk==='1D'?days[days.length-1]:days[0],w=pts.filter(function(p){return p[0].slice(0,10)>=first});
+  if(w.length<2)return null;
+  var vals=w.map(function(p){return p[1]}),n=vals.length,fit=n>=6?reg(vals):null;
+  var before=A.c.filter(function(x){return x[0]<first}),ref=before.length?before[before.length-1][1]:null;
+  var ticks=[];
+  if(rk==='1D')w.forEach(function(p,i){var h=+p[0].slice(11,13);if(p[0].slice(14,16)==='00'&&h%2===0)ticks.push({i:i,label:hm(p[0])})});
+  else w.forEach(function(p,i){if(i===0||p[0].slice(0,10)!==w[i-1][0].slice(0,10))ticks.push({i:i,label:dayName(p[0].slice(0,10))+' '+(+p[0].slice(8,10))})});
+  var I={n:n,vals:vals,w:w,fit:fit,s50a:[],s200a:[],tgt:A.tgt,ref:ref,refLabel:rk==='1D'?'Prev close':'Close before',ticks:ticks,
+    tipl:function(i){var t=w[i][0];return (rk==='1D'?'':dayName(t.slice(0,10))+' '+fdate(t).replace(/ \d{4}$/,'')+', ')+hm(t)+' ET'},
+    first:w[0][0],lastT:w[n-1][0],last:vals[n-1],hi:Math.max.apply(null,vals),lo:Math.min.apply(null,vals)};
+  if(fit){I.z=(Math.log(I.last)-(fit.a+fit.b*(n-1)))/(fit.s||1e-9);I.move=fit.at(n-1)/fit.at(0)-1}
+  return I;
+}
+
 /* ---------- detail sheet ---------- */
 var dRange=null;
 function detail(sym,keep){
   var s=(STOCKS||[]).filter(function(x){return x.symbol===sym})[0];if(!s)return;
-  cur=sym;var rk=dRange||range,A=analyze(s,rk),q=A.q||{};
+  cur=sym;var rk=dRange||range,intra=rk==='1D'||rk==='1W',A=analyze(s,intra?range:rk),q=A.q||{};
   $('detT').textContent=sym+(q.name?' · '+q.name:'');
   $('detSub').textContent=[q.exchange,q.currency,s.added?'on wishlist since '+fdate(s.added):''].filter(Boolean).join(' · ');
   if(!keep){$('eTgt').value=s.target||'';$('eNt').value=s.note||'';$('detMsg').textContent='';resetDel()}
   if(A.none){var nf=q.error_kind==='not_found';$('detBody').innerHTML='<div class="verdict '+(nf?'down':'watch')+'"><b>'+(nf?'Ticker not found':q.error?'Prices delayed':'Waiting for prices')+'</b> · '+(nf?esc(q.error)+'. Remove it and add it again with the right ticker.':q.error?'The price service was busy last time. It retries on the next update, or tap Update prices now to try sooner.':'Prices appear after the next price update, usually within a couple of minutes of adding.')+'</div>';return}
-  var tabs='<div class="tabs" role="tablist" id="dTabs">'+['3M','6M','1Y','2Y'].map(function(r){return '<button role="tab" type="button" data-r="'+r+'" aria-selected="'+(r===rk)+'">'+r+'</button>'}).join('')+'</div>';
+  var tabs='<div class="tabs" role="tablist" id="dTabs">'+['1D','1W','3M','6M','1Y','2Y'].map(function(r){return '<button role="tab" type="button" data-r="'+r+'" aria-selected="'+(r===rk)+'">'+r+'</button>'}).join('')+'</div>';
   var v200=A.s200?A.last/A.s200-1:null,v50=A.s50?A.last/A.s50-1:null,cross=A.s50&&A.s200?(A.s50>A.s200?'Golden cross (50d above 200d)':'Death cross (50d below 200d)'):'Needs 200 days of data';
   var st=function(k,v,d){return '<div><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="d">'+d+'</div></div>'};
   $('detBody').innerHTML='<div class="d-top"><div><div class="d-price">'+fp(A.last)+' <small class="cur">'+esc(q.currency||'')+'</small><span class="chg '+cls(A.day)+'">'+pct(A.day,2)+' today</span></div><div class="note">'+(A.live?'<span class="livedot"></span>Live price (IEX) · '+ago(A.live.time):'Close on '+fdate(A.c[A.c.length-1][0]))+'</div></div>'+tabs+'</div>'+
@@ -485,7 +510,24 @@ function detail(sym,keep){
       st('52-week range',fp(A.lo)+' – '+fp(A.hi),'<span class="'+cls(A.dd)+'">'+pct(A.dd)+'</span> from the high')+
       st('Your target',A.tgt?fp(A.tgt):'–',A.tgt?(A.gap<=0?'Price is '+pct(-A.gap)+' under it':'Needs a '+pct(-A.gap/(1+A.gap)).replace('−','')+' drop'):'Set one below')+
     '</div>';
-  bigChart($('big'),A);
+  if(intra){
+    var I=intraView(A,rk),sig=function(z){return (z>0?'+':z<0?'−':'')+Math.abs(z).toFixed(2)+'σ'};
+    $('big').previousElementSibling.innerHTML='<span style="--c:var(--l-price)">Price</span><span class="dash" style="--c:var(--l-trend)">Trendline</span><span class="band" style="--c:var(--l-trend)">±2σ channel</span><span class="dash" style="--c:var(--muted)">'+(rk==='1D'?'Previous close':'Close before the week')+'</span>'+(A.tgt?'<span class="dash" style="--c:var(--l-tgt)">Your target</span>':'');
+    var stats=$('detBody').querySelector('.stats');
+    if(!I){$('big').innerHTML='<p class="empty" style="padding:30px 0;text-align:center">No intraday prices yet. They arrive with the live updates during US market hours (about 9:30 pm–4 am Malaysia time).</p>';stats.style.display='none'}
+    else{
+      bigChart($('big'),I);
+      var ch=I.ref?I.last/I.ref-1:null;
+      stats.innerHTML=
+        st(rk==='1D'?'Change today':'Change this week',ch!=null?'<span class="'+cls(ch)+'">'+pct(ch,2)+'</span>':'–',I.ref?'vs '+fp(I.ref)+' '+(rk==='1D'?'previous close':'before the week'):'')+
+        st(rk==='1D'?'Day range':'Week range',fp(I.lo)+' – '+fp(I.hi),'Last at '+hm(I.lastT)+' ET'+(rk==='1W'?', '+dayName(I.lastT.slice(0,10)):''))+
+        st('Trend over '+rk,I.fit?'<span class="'+cls(I.move)+'">'+pct(I.move,2)+'</span>':'–',I.fit?'Along the trendline · R² '+I.fit.r2.toFixed(2):'Needs more points')+
+        st('vs trendline',I.fit?sig(I.z):'–',I.fit?(I.z<=-1?'Dipped below the '+rk+' trend':I.z>=1.5?'Stretched above the '+rk+' trend':'Near the '+rk+' trend'):'')+
+        st('52-week range',fp(A.lo)+' – '+fp(A.hi),'<span class="'+cls(A.dd)+'">'+pct(A.dd)+'</span> from the high')+
+        st('Your target',A.tgt?fp(A.tgt):'–',A.tgt?(A.gap<=0?'Price is '+pct(-A.gap)+' under it':'Needs a '+pct(-A.gap/(1+A.gap)).replace('−','')+' drop'):'Set one below');
+    }
+    $('detBody').querySelector('.verdict').insertAdjacentHTML('beforeend','<div class="note" style="margin-top:4px">Signal is based on the '+range+' daily trend.</div>');
+  }else bigChart($('big'),A);
   $('dTabs').onclick=function(e){var b=e.target.closest('[data-r]');if(!b)return;dRange=b.getAttribute('data-r');detail(sym,true)};
 }
 function openOv(id){$(id).classList.add('open');$(id).setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
