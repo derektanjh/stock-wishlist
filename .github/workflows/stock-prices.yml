@@ -2,7 +2,7 @@ name: Stock prices
 
 on:
   schedule:
-    # Weekdays: after Bursa/SGX close (~17:15 MYT) and after US close (~05:15 MYT next day)
+    # Weekdays: after the US close (21:17 UTC, ~05:17 MYT) and a catch-up run at 09:17 UTC
     - cron: "17 9 * * 1-5"
     - cron: "17 21 * * 1-5"
   push:
@@ -27,6 +27,8 @@ jobs:
           python-version: "3.12"
       - name: Fetch prices
         run: python scripts/fetch_prices.py
+        env:
+          TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
       - name: Commit prices.json
         run: |
           git config user.name "github-actions[bot]"

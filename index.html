@@ -231,7 +231,7 @@ footer{max-width:1280px;margin:0 auto;padding:0 16px calc(28px + env(safe-area-i
   </div>
 </div>
 </main>
-<footer><span id="ftData">Prices: daily closes via GitHub Actions</span><span>·</span><span>Signals are maths on past prices, not financial advice</span><span>·</span><span>Stock Wishlist v1</span></footer>
+<footer><span id="ftData">Prices: daily closes from Tiingo via GitHub Actions</span><span>·</span><span>Signals are maths on past prices, not financial advice</span><span>·</span><span>Stock Wishlist v1</span></footer>
 
 <button class="btn fab" id="fab" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add stock</button>
 
@@ -240,12 +240,12 @@ footer{max-width:1280px;margin:0 auto;padding:0 16px calc(28px + env(safe-area-i
   <div class="sheet narrow" role="dialog" aria-modal="true" aria-labelledby="addT">
     <button class="x" type="button" data-close aria-label="Close">×</button>
     <h3 id="addT">Add to wishlist</h3>
-    <div class="note">Use the Yahoo Finance ticker. Prices appear a minute or two after saving.</div>
-    <div class="grp" style="--c:var(--c-stock)"><h4>Stock</h4><p class="gh">US: AAPL, NVDA · Bursa: 1155.KL (Maybank) · SGX: D05.SI · HK: 0700.HK</p><div class="fields">
+    <div class="note">US stocks and ETFs. Prices appear a minute or two after saving.</div>
+    <div class="grp" style="--c:var(--c-stock)"><h4>Stock</h4><p class="gh">e.g. NVDA, AAPL, VOO, BRK-B</p><div class="fields">
       <label class="span2">Ticker <i>*</i><input id="sym" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. NVDA"></label>
     </div></div>
     <div class="grp" style="--c:var(--c-plan)"><h4>Your plan</h4><p class="gh">Optional, can be changed later</p><div class="fields">
-      <label>Target buy price<input id="tgt" type="number" inputmode="decimal" step="0.01" placeholder="in the stock's currency"></label>
+      <label>Target buy price<input id="tgt" type="number" inputmode="decimal" step="0.01" placeholder="in USD"></label>
       <label>Note<input id="nt" autocomplete="off" placeholder="Why you're watching it"></label>
     </div></div>
     <p class="msg" id="addMsg" role="alert"></p>
@@ -425,8 +425,8 @@ function render(){
     var s=A.s,q=A.q||{},name=esc(q.name||s.note||''),cu=q.currency?'<small class="cur">'+esc(q.currency)+'</small>':'';
     var sig='<span class="sig '+A.sig.k+'">'+A.sig.t+'</span>';
     if(A.none){
-      rows+='<tr data-s="'+esc(s.symbol)+'"><td class="l sym"><b>'+esc(s.symbol)+'</b><span>'+name+'</span></td><td colspan="9" class="l dim">'+(A.nf?esc(q.error)+'. Check the ticker (e.g. 1155.KL for Bursa).':q.error?'The price service was busy. It retries on the next update; tap Update prices now to try sooner.':'<span class="spin"></span>Prices will appear after the next price update.')+'</td><td class="sep">'+(s.target?fp(s.target):'')+'</td><td class="l">'+sig+'</td></tr>';
-      cards+='<div class="stk" data-s="'+esc(s.symbol)+'"><div class="s-head"><div class="s-name"><b>'+esc(s.symbol)+'</b><span>'+name+'</span></div>'+sig+'</div><div class="s-meta">'+(A.nf?esc(q.error)+'. Check the ticker (e.g. 1155.KL for Bursa).':q.error?'The price service was busy. It retries on the next update; tap Update prices now to try sooner.':'Prices will appear after the next price update.')+'</div></div>';
+      rows+='<tr data-s="'+esc(s.symbol)+'"><td class="l sym"><b>'+esc(s.symbol)+'</b><span>'+name+'</span></td><td colspan="9" class="l dim">'+(A.nf?esc(q.error)+'.':q.error?'The price service was busy. It retries on the next update; tap Update prices now to try sooner.':'<span class="spin"></span>Prices will appear after the next price update.')+'</td><td class="sep">'+(s.target?fp(s.target):'')+'</td><td class="l">'+sig+'</td></tr>';
+      cards+='<div class="stk" data-s="'+esc(s.symbol)+'"><div class="s-head"><div class="s-name"><b>'+esc(s.symbol)+'</b><span>'+name+'</span></div>'+sig+'</div><div class="s-meta">'+(A.nf?esc(q.error)+'.':q.error?'The price service was busy. It retries on the next update; tap Update prices now to try sooner.':'Prices will appear after the next price update.')+'</div></div>';
       return;
     }
     var v200=A.s200?A.last/A.s200-1:null;
@@ -464,7 +464,7 @@ function detail(sym,keep){
   $('detT').textContent=sym+(q.name?' · '+q.name:'');
   $('detSub').textContent=[q.exchange,q.currency,s.added?'on wishlist since '+fdate(s.added):''].filter(Boolean).join(' · ');
   if(!keep){$('eTgt').value=s.target||'';$('eNt').value=s.note||'';$('detMsg').textContent='';resetDel()}
-  if(A.none){var nf=q.error_kind==='not_found';$('detBody').innerHTML='<div class="verdict '+(nf?'down':'watch')+'"><b>'+(nf?'Ticker not found':q.error?'Prices delayed':'Waiting for prices')+'</b> · '+(nf?esc(q.error)+'. Remove it and add it again with the right ticker (e.g. 1155.KL for Bursa).':q.error?'The price service was busy last time. It retries on the next update, or tap Update prices now to try sooner.':'Prices appear after the next price update, usually within a couple of minutes of adding.')+'</div>';return}
+  if(A.none){var nf=q.error_kind==='not_found';$('detBody').innerHTML='<div class="verdict '+(nf?'down':'watch')+'"><b>'+(nf?'Ticker not found':q.error?'Prices delayed':'Waiting for prices')+'</b> · '+(nf?esc(q.error)+'. Remove it and add it again with the right ticker.':q.error?'The price service was busy last time. It retries on the next update, or tap Update prices now to try sooner.':'Prices appear after the next price update, usually within a couple of minutes of adding.')+'</div>';return}
   var tabs='<div class="tabs" role="tablist" id="dTabs">'+['3M','6M','1Y','2Y'].map(function(r){return '<button role="tab" type="button" data-r="'+r+'" aria-selected="'+(r===rk)+'">'+r+'</button>'}).join('')+'</div>';
   var v200=A.s200?A.last/A.s200-1:null,v50=A.s50?A.last/A.s50-1:null,cross=A.s50&&A.s200?(A.s50>A.s200?'Golden cross (50d above 200d)':'Death cross (50d below 200d)'):'Needs 200 days of data';
   var st=function(k,v,d){return '<div><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="d">'+d+'</div></div>'};
@@ -534,8 +534,8 @@ function commit(fn,message,btn,msgEl,done){
 function today(){var d=new Date(),p=function(x){return (x<10?'0':'')+x};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())}
 $('addSave').onclick=function(){
   var sym=$('sym').value.trim().toUpperCase().replace(/\s+/g,''),t=parseFloat($('tgt').value),note=$('nt').value.trim();
-  if(!sym){$('addMsg').textContent='Enter a ticker, e.g. NVDA or 1155.KL.';return}
-  if(!/^[A-Z0-9^][A-Z0-9.\-=^]{0,19}$/.test(sym)){$('addMsg').textContent='That doesn\'t look like a ticker. Use letters, numbers, dots or dashes, e.g. BRK-B or 1155.KL.';return}
+  if(!sym){$('addMsg').textContent='Enter a ticker, e.g. NVDA.';return}
+  if(!/^[A-Z0-9^][A-Z0-9.\-=^]{0,19}$/.test(sym)){$('addMsg').textContent='That doesn\'t look like a ticker. Use letters, numbers, dots or dashes, e.g. BRK-B.';return}
   if(STOCKS&&STOCKS.some(function(s){return s.symbol===sym})){$('addMsg').textContent=sym+' is already on your wishlist.';return}
   var item={symbol:sym,target:t>0?t:null,note:note,added:today()};
   commit(function(l){if(!l.some(function(s){return s.symbol===sym}))l.push(item);return l},'Wishlist: add '+sym,$('addSave'),$('addMsg'),function(){
