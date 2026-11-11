@@ -1,0 +1,29 @@
+{
+  "name": "Stock Wishlist",
+  "short_name": "Stocks",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#3b1a7a",
+  "theme_color": "#6d28d9",
+  "icons": [
+    {
+      "src": "stocks-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "stocks-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "stocks-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

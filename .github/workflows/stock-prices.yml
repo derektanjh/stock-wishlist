@@ -1,0 +1,41 @@
+name: Stock prices
+
+on:
+  schedule:
+    # Weekdays: after Bursa/SGX close (~17:15 MYT) and after US close (~05:15 MYT next day)
+    - cron: "17 9 * * 1-5"
+    - cron: "17 21 * * 1-5"
+  push:
+    branches: [main]
+    paths: [stocks.json]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stock-prices
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch prices
+        run: python scripts/fetch_prices.py
+      - name: Commit prices.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add prices.json
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Update stock prices"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((i * 5))
+          done
+          exit 1
