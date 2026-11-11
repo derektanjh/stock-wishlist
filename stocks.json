@@ -1,6 +1,7 @@
 {
   "stocks": [
     {"symbol": "NVDA", "target": null, "note": "", "added": "2026-11-12"},
-    {"symbol": "AAPL", "target": null, "note": "", "added": "2026-11-12"}
+    {"symbol": "AAPL", "target": null, "note": "", "added": "2026-11-12"},
+    {"symbol": "TSLA", "target": null, "note": "", "added": "2026-11-12"}
   ]
 }
