@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 """Fetch daily closing prices for every ticker in stocks.json into prices.json.
 
-Source: Tiingo end-of-day API (US stocks and ETFs). Needs the TIINGO_API_KEY
-repository secret. Runs in GitHub Actions (.github/workflows/stock-prices.yml).
+Source: Tiingo (US stocks and ETFs). Needs the TIINGO_API_KEY repository secret.
+
+  python scripts/fetch_prices.py          full run: 2 years of daily closes + live prices
+  python scripts/fetch_prices.py --live   market hours: live IEX prices only (one request
+                                          for all tickers); history only for new tickers
+ Runs in GitHub Actions (.github/workflows/stock-prices.yml).
 Standard library only. If a ticker can't be fetched, its previous prices are
 kept and the error is noted for the page.
 """
-import json, os, sys, time, urllib.error, urllib.parse, urllib.request
+import json, os, re, sys, time, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
 
 API = "https://api.tiingo.com/tiingo/daily/"
+IEX = "https://api.tiingo.com/iex/"
 KEY = os.environ.get("TIINGO_API_KEY", "").strip()
 DAYS = 740  # a little over 2 years of calendar days
 
@@ -18,8 +23,8 @@ class NotFound(Exception):
     pass
 
 
-def call(path, params=None):
-    url = API + path + ("?" + urllib.parse.urlencode(params) if params else "")
+def call(path, params=None, base=API):
+    url = base + path + ("?" + urllib.parse.urlencode(params) if params else "")
     req = urllib.request.Request(url, headers={"Authorization": "Token " + KEY, "Content-Type": "application/json", "User-Agent": "stock-wishlist/1.0"})
     last = None
     for attempt in range(3):
@@ -63,7 +68,29 @@ def fetch(symbol, old):
     return {"name": name, "currency": "USD", "exchange": exch or "", "price": closes[-1][1], "price_time": rows[-1]["date"], "closes": closes}, None, None
 
 
+def live_prices(symbols):
+    """Latest IEX trade for every ticker in one request: {SYMBOL: {price, prev, time}}."""
+    if not KEY or not symbols:
+        return {}
+    by_t = {s.lower().replace(".", "-"): s for s in symbols}
+    try:
+        rows = call("", {"tickers": ",".join(by_t)}, base=IEX)
+    except Exception as e:
+        print(f"Live prices unavailable: {e}", file=sys.stderr)
+        return {}
+    out = {}
+    for r in rows or []:
+        sym = by_t.get(str(r.get("ticker", "")).lower())
+        price = r.get("tngoLast") or r.get("last")
+        if sym and price and r.get("timestamp"):
+            # 2026-11-11T12:08:11.463092717-05:00 -> 2026-11-11T12:08:11.463-05:00 (browsers can't read 9 decimals)
+            ts = re.sub(r"(\.\d{3})\d+", r"\1", r["timestamp"])
+            out[sym] = {"price": round(float(price), 4), "prev": r.get("prevClose"), "time": ts}
+    return out
+
+
 def main():
+    live_only = "--live" in sys.argv
     stocks = json.load(open("stocks.json")).get("stocks", [])
     try:
         old = json.load(open("prices.json")).get("quotes", {})
@@ -77,6 +104,9 @@ def main():
         if not sym or sym in quotes:
             continue
         prev = old.get(sym) or {}
+        if live_only and prev.get("closes"):
+            quotes[sym] = {k: v for k, v in prev.items() if k != "live"}
+            continue
         q, err, kind = fetch(sym, prev)
         if q:
             quotes[sym] = q
@@ -87,7 +117,16 @@ def main():
             keep["error"], keep["error_kind"] = err, kind
             quotes[sym] = keep
             print(f"{sym}: {err}", file=sys.stderr)
-        time.sleep(1)
+        if not live_only:
+            time.sleep(1)
+    live = live_prices(list(quotes))
+    for sym, q in quotes.items():
+        lv = live.get(sym)
+        last_day = q["closes"][-1][0] if q.get("closes") else ""
+        # keep a live price only if it's from a day after the last daily close
+        if lv and lv["time"][:10] > last_day:
+            q["live"] = lv
+    print(f"Live prices for {len([q for q in quotes.values() if 'live' in q])}/{len(quotes)} tickers")
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     lines = [f"    {json.dumps(k)}: {json.dumps(v, separators=(',', ':'))}" for k, v in quotes.items()]
     body = '{\n  "updated": "' + now + '",\n  "quotes": {\n' + ",\n".join(lines) + ("\n" if lines else "") + "  }\n}\n"

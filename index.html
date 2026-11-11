@@ -109,6 +109,9 @@ small.cur{font-size:11px;color:var(--muted);margin-left:3px;font-weight:600}
 .sig{display:inline-block;font-size:12px;padding:2px 9px;border-radius:99px;border:1px solid color-mix(in srgb,var(--c) 55%,var(--line));color:var(--c);background:color-mix(in srgb,var(--c) 9%,transparent);font-weight:650;white-space:nowrap}
 .sig.buy{--c:var(--good)}.sig.near{--c:var(--c-perf)}.sig.hot{--c:var(--warn)}.sig.down{--c:var(--bad)}.sig.watch{--c:var(--muted)}.sig.wait{--c:var(--accent)}
 .spark{display:block}
+.livedot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);margin-right:6px;vertical-align:1px;box-shadow:0 0 0 0 color-mix(in srgb,var(--good) 60%,transparent);animation:lpulse 2s infinite}
+@keyframes lpulse{70%{box-shadow:0 0 0 6px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.livedot{animation:none}}
 .empty{color:var(--muted);margin:4px 0}
 .only-m{display:none}
 .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap}
@@ -231,7 +234,7 @@ footer{max-width:1280px;margin:0 auto;padding:0 16px calc(28px + env(safe-area-i
   </div>
 </div>
 </main>
-<footer><span id="ftData">Prices: daily closes from Tiingo via GitHub Actions</span><span>·</span><span>Signals are maths on past prices, not financial advice</span><span>·</span><span>Stock Wishlist v1</span></footer>
+<footer><span id="ftData">Prices: daily closes from Tiingo via GitHub Actions</span><span>·</span><span>Live prices (green dot) refresh about every 30 min in US market hours</span><span>·</span><span>Signals are maths on past prices, not financial advice</span><span>·</span><span>Stock Wishlist v1</span></footer>
 
 <button class="btn fab" id="fab" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add stock</button>
 
@@ -333,10 +336,12 @@ function trendWord(A){
 function analyze(s,rk){
   var q=PRICES&&PRICES.quotes&&PRICES.quotes[s.symbol];
   if(!q||!q.closes||q.closes.length<2)return {s:s,q:q,none:true};
-  var c=q.closes,all=c.map(function(x){return x[1]}),N=all.length;
+  var c=q.closes,lv=q.live&&q.live.price>0&&q.live.time&&String(q.live.time).slice(0,10)>c[c.length-1][0]?q.live:null;
+  if(lv)c=c.concat([[String(lv.time).slice(0,10),lv.price]]); // today's live price as the newest point
+  var all=c.map(function(x){return x[1]}),N=all.length;
   var n=Math.min(N,WIN[rk]),w=c.slice(N-n),vals=all.slice(N-n);
   var last=all[N-1],prev=all[N-2],fit=n>=20?reg(vals):null;
-  var A={s:s,q:q,c:c,w:w,vals:vals,n:n,last:last,prev:prev,day:last/prev-1,
+  var A={s:s,q:q,c:c,w:w,live:lv,vals:vals,n:n,last:last,prev:prev,day:last/prev-1,
     m1:back(c,21)?last/back(c,21)-1:null,y1:back(c,252)?last/back(c,252)-1:null,fit:fit};
   if(fit){A.ann=Math.exp(fit.b*252)-1;A.z=(Math.log(last)-(fit.a+fit.b*(n-1)))/(fit.s||1e-9);A.tl=fit.at(n-1)}
   var s50=sma(all,50),s200=sma(all,200);A.s50a=s50.slice(N-n);A.s200a=s200.slice(N-n);A.s50=s50[N-1];A.s200=s200[N-1];
@@ -431,13 +436,13 @@ function render(){
     }
     var v200=A.s200?A.last/A.s200-1:null;
     rows+='<tr data-s="'+esc(s.symbol)+'"><td class="l sym"><b>'+esc(s.symbol)+'</b><span>'+name+'</span></td>'+
-      '<td class="sep"><b>'+fp(A.last)+'</b>'+cu+'</td><td class="'+cls(A.day)+'">'+pct(A.day,2)+'</td><td class="'+cls(A.m1)+'">'+pct(A.m1)+'</td><td class="'+cls(A.y1)+'">'+pct(A.y1)+'</td>'+
+      '<td class="sep">'+(A.live?'<span class="livedot" title="Live price, '+ago(A.live.time)+'"></span>':'')+'<b>'+fp(A.last)+'</b>'+cu+'</td><td class="'+cls(A.day)+'">'+pct(A.day,2)+'</td><td class="'+cls(A.m1)+'">'+pct(A.m1)+'</td><td class="'+cls(A.y1)+'">'+pct(A.y1)+'</td>'+
       '<td class="sep l">'+A.trend+'</td><td class="'+cls(A.ann)+'">'+(A.fit?pct(A.ann,0)+'/yr':'–')+'</td><td>'+(A.fit?(A.z>0?'+':A.z<0?'−':'')+Math.abs(A.z).toFixed(1)+'σ':'–')+'</td><td class="'+cls(v200)+'">'+(v200!=null?pct(v200,0):'–')+'</td><td class="sep l">'+spark(A)+'</td>'+
       '<td class="sep">'+(A.tgt?fp(A.tgt)+' <span class="'+(A.gap<=0?'up':'dim')+'">('+pct(A.gap,0)+')</span>':'<span class="dim">set target</span>')+'</td><td class="l">'+sig+'</td></tr>';
     cards+='<div class="stk" data-s="'+esc(s.symbol)+'"><div class="s-head"><div class="s-name"><b>'+esc(s.symbol)+'</b><span>'+name+'</span></div>'+sig+'</div>'+
-      '<div class="s-main"><div><b>'+fp(A.last)+'</b>'+cu+'<span class="chg '+cls(A.day)+'">'+pct(A.day,2)+'</span></div>'+spark(A)+'</div>'+
+      '<div class="s-main"><div>'+(A.live?'<span class="livedot"></span>':'')+'<b>'+fp(A.last)+'</b>'+cu+'<span class="chg '+cls(A.day)+'">'+pct(A.day,2)+'</span></div>'+spark(A)+'</div>'+
       '<div class="s-grid"><div><b class="'+cls(A.ann)+'">'+(A.fit?pct(A.ann,0):'–')+'</b><span>Trend/yr</span></div><div><b>'+(A.fit?(A.z>0?'+':A.z<0?'−':'')+Math.abs(A.z).toFixed(1)+'σ':'–')+'</b><span>vs trendline</span></div><div><b class="'+(A.tgt&&A.gap<=0?'up':'')+'">'+(A.tgt?pct(A.gap,0):'–')+'</b><span>'+(A.tgt?'vs target':'No target')+'</span></div></div>'+
-      '<div class="s-meta">'+A.trend+' · 1Y '+pct(A.y1)+(s.note?' · '+esc(s.note):'')+'</div></div>';
+      '<div class="s-meta">'+(A.live?'Live '+ago(A.live.time)+' · ':'')+A.trend+' · 1Y '+pct(A.y1)+(s.note?' · '+esc(s.note):'')+'</div></div>';
   });
   var none=!loaded?'<p class="empty"><span class="spin"></span>Loading wishlist…</p>':failed&&!STOCKS?'<p class="empty">Could not load your wishlist. Tap Refresh to try again.</p>':'<p class="empty">Your wishlist is empty. Tap <b>Add stock</b> to start watching one.</p>';
   var head='<thead><tr class="grp"><th style="--c:var(--c-stock)">Stock</th><th colspan="4" class="sep" style="--c:var(--c-perf)">Performance</th><th colspan="5" class="sep" style="--c:var(--c-trend)">Trend · '+range+'</th><th colspan="2" class="sep" style="--c:var(--c-plan)">Your plan</th></tr>'+
@@ -468,7 +473,7 @@ function detail(sym,keep){
   var tabs='<div class="tabs" role="tablist" id="dTabs">'+['3M','6M','1Y','2Y'].map(function(r){return '<button role="tab" type="button" data-r="'+r+'" aria-selected="'+(r===rk)+'">'+r+'</button>'}).join('')+'</div>';
   var v200=A.s200?A.last/A.s200-1:null,v50=A.s50?A.last/A.s50-1:null,cross=A.s50&&A.s200?(A.s50>A.s200?'Golden cross (50d above 200d)':'Death cross (50d below 200d)'):'Needs 200 days of data';
   var st=function(k,v,d){return '<div><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="d">'+d+'</div></div>'};
-  $('detBody').innerHTML='<div class="d-top"><div><div class="d-price">'+fp(A.last)+' <small class="cur">'+esc(q.currency||'')+'</small><span class="chg '+cls(A.day)+'">'+pct(A.day,2)+' today</span></div><div class="note">Close on '+fdate(A.c[A.c.length-1][0])+'</div></div>'+tabs+'</div>'+
+  $('detBody').innerHTML='<div class="d-top"><div><div class="d-price">'+fp(A.last)+' <small class="cur">'+esc(q.currency||'')+'</small><span class="chg '+cls(A.day)+'">'+pct(A.day,2)+' today</span></div><div class="note">'+(A.live?'<span class="livedot"></span>Live price (IEX) · '+ago(A.live.time):'Close on '+fdate(A.c[A.c.length-1][0]))+'</div></div>'+tabs+'</div>'+
     '<div class="legend"><span style="--c:var(--l-price)">Price</span><span class="dash" style="--c:var(--l-trend)">Trendline</span><span class="band" style="--c:var(--l-trend)">±2σ channel</span><span style="--c:var(--l-50)">50-day avg</span><span style="--c:var(--l-200)">200-day avg</span>'+(A.tgt?'<span class="dash" style="--c:var(--l-tgt)">Your target</span>':'')+'</div>'+
     '<div class="chartwrap" id="big"></div>'+
     '<div class="verdict '+A.sig.k+'"><b>'+A.sig.t+'</b> · '+A.sig.why+'</div>'+
@@ -589,6 +594,7 @@ function load(btn){
 }
 function watchPrices(){clearTimeout(wT);var tries=0;(function tick(){wT=setTimeout(function(){if(!Object.keys(waitFor).length)return;if(++tries>20){waitFor={};render();page('Prices are taking longer than usual. They will show on your next visit.','wait');return}load().then(function(){if(Object.keys(waitFor).length)tick();else page('New prices are in.',true)})},15000)})()}
 $('reload').onclick=function(){load($('reload'))};
+setInterval(function(){if(document.visibilityState==='visible'&&(STOCKS||[]).length)load()},300000); // pick up new live prices while open
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&(!cachedAt||Date.now()-cachedAt>120000))load()});
 var rt;addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(function(){if(cur&&$('big'))detail(cur,true)},150)});
 (function start(){

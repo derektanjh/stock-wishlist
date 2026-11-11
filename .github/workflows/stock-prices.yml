@@ -2,9 +2,11 @@ name: Stock prices
 
 on:
   schedule:
-    # Weekdays: after the US close (21:17 UTC, ~05:17 MYT) and a catch-up run at 09:17 UTC
-    - cron: "17 9 * * 1-5"
-    - cron: "17 21 * * 1-5"
+    # Live prices every 30 min while the US market is open (13:07-21:37 UTC covers summer and winter time)
+    - cron: "7,37 13-21 * * 1-5"
+    # Full daily history once Tiingo has the day's close (23:37 UTC, ~07:37 MYT), plus a catch-up run
+    - cron: "37 23 * * 1-5"
+    - cron: "17 9 * * 2-6"
   push:
     branches: [main]
     paths: [stocks.json]
@@ -26,7 +28,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Fetch prices
-        run: python scripts/fetch_prices.py
+        run: python scripts/fetch_prices.py ${{ github.event.schedule == '7,37 13-21 * * 1-5' && '--live' || '' }}
         env:
           TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
       - name: Commit prices.json
