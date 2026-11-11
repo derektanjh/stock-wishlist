@@ -109,6 +109,8 @@ small.cur{font-size:11px;color:var(--muted);margin-left:3px;font-weight:600}
 .sig{display:inline-block;font-size:12px;padding:2px 9px;border-radius:99px;border:1px solid color-mix(in srgb,var(--c) 55%,var(--line));color:var(--c);background:color-mix(in srgb,var(--c) 9%,transparent);font-weight:650;white-space:nowrap}
 .sig.buy{--c:var(--good)}.sig.near{--c:var(--c-perf)}.sig.hot{--c:var(--warn)}.sig.down{--c:var(--bad)}.sig.watch{--c:var(--muted)}.sig.wait{--c:var(--accent)}
 .spark{display:block}
+.legend .tabs{margin-left:auto}.legend .tabs button{min-height:30px;padding:4px 11px;font-size:12.5px}
+.legend span.up2::before{background:var(--good);height:10px;width:7px;vertical-align:-1px}.legend span.dn2::before{background:var(--bad);height:10px;width:7px;vertical-align:-1px}
 .livedot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);margin-right:6px;vertical-align:1px;box-shadow:0 0 0 0 color-mix(in srgb,var(--good) 60%,transparent);animation:lpulse 2s infinite}
 @keyframes lpulse{70%{box-shadow:0 0 0 6px transparent}100%{box-shadow:0 0 0 0 transparent}}
 @media (prefers-reduced-motion:reduce){.livedot{animation:none}}
@@ -298,6 +300,7 @@ var TOKKEY='stockWishlistToken';
 var CK='stocksCache',RK='stocksRange';
 var WIN={'3M':63,'6M':126,'1Y':252,'2Y':9999};
 var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var CMODE=(function(){try{return localStorage.getItem('stocksChart')==='candle'?'candle':'line'}catch(e){return 'line'}})();
 var STOCKS=null,PRICES=null,range='1Y',loaded=false,failed=false,cur=null,waitFor={};
 
 function $(i){return document.getElementById(i)}
@@ -337,7 +340,7 @@ function analyze(s,rk){
   var q=PRICES&&PRICES.quotes&&PRICES.quotes[s.symbol];
   if(!q||!q.closes||q.closes.length<2)return {s:s,q:q,none:true};
   var c=q.closes,lv=q.live&&q.live.price>0&&q.live.time&&String(q.live.time).slice(0,10)>c[c.length-1][0]?q.live:null;
-  if(lv)c=c.concat([[String(lv.time).slice(0,10),lv.price]]); // today's live price as the newest point
+  if(lv)c=c.concat([[String(lv.time).slice(0,10),lv.price,lv.open||lv.price,Math.max(lv.high||0,lv.price),Math.min(lv.low||lv.price,lv.price),lv.volume||0]]); // today's live price as the newest point
   var all=c.map(function(x){return x[1]}),N=all.length;
   var n=Math.min(N,WIN[rk]),w=c.slice(N-n),vals=all.slice(N-n);
   var last=all[N-1],prev=all[N-2],fit=n>=20?reg(vals):null;
@@ -374,15 +377,22 @@ function spark(A){
 function bigChart(box,A){
   box.innerHTML='';
   var W=Math.max(280,box.clientWidth||800),narrow=W<560,H=narrow?230:300,m={t:12,r:10,b:26,l:narrow?44:54};
-  var n=A.n,f=A.fit,K=2,vals=A.vals.slice();
+  var n=A.n,f=A.fit,K=2,vals=A.vals.slice(),cand=CMODE==='candle',bars=A.w;
+  var G=[];if(cand){var k=Math.max(1,Math.ceil(n/(narrow?60:110)));for(var g0=0;g0<n;g0+=k){var g1=Math.min(n-1,g0+k-1),hh=-1e18,ll=1e18,vv=0;
+    for(var j=g0;j<=g1;j++){var b=bars[j];hh=Math.max(hh,b[3]!=null?b[3]:b[1]);ll=Math.min(ll,b[4]!=null?b[4]:b[1]);vv+=b[5]||0}
+    G.push({i0:g0,i1:g1,o:bars[g0][2]!=null?bars[g0][2]:bars[g0][1],c:bars[g1][1],h:hh,l:ll,v:vv})}}
   var up=f?[]:null,dn=f?[]:null,tl=f?[]:null;
   if(f)for(var i=0;i<n;i++){var c=f.a+f.b*i;tl.push(Math.exp(c));up.push(Math.exp(c+K*f.s));dn.push(Math.exp(c-K*f.s))}
   var ys=vals.concat(f?up.concat(dn):[]);A.s50a.concat(A.s200a).forEach(function(x){if(x!=null)ys.push(x)});
   if(A.ref)ys.push(A.ref);
+  G.forEach(function(g){ys.push(g.h,g.l)});
   var lo=Math.min.apply(null,ys),hi=Math.max.apply(null,ys),sp=hi-lo;
   if(A.tgt&&A.tgt>=lo-sp*0.35&&A.tgt<=hi+sp*0.35){lo=Math.min(lo,A.tgt);hi=Math.max(hi,A.tgt)} // only stretch the chart for a nearby target
   var pad=(hi-lo)*0.04||1;lo-=pad;hi+=pad;
-  var iw=W-m.l-m.r,ih=H-m.t-m.b,X=function(i){return m.l+iw*i/Math.max(1,n-1)},Y=function(v){return m.t+ih-(v-lo)/(hi-lo)*ih};
+  var maxV=Math.max.apply(null,G.map(function(g){return g.v}).concat([0])),vh=cand&&maxV>0?Math.round((H-m.t-m.b)*0.18):0;
+  if(vh)H+=vh;
+  var kk=cand&&G.length?G[0].i1-G[0].i0+1:0; // candles get half a candle of room at each edge
+  var iw=W-m.l-m.r,ih=H-m.t-m.b-vh,X=function(i){return m.l+iw*(i+kk/2)/Math.max(1,n-1+kk)},Y=function(v){return m.t+ih-(v-lo)/(hi-lo)*ih};
   var svg=el('svg',{width:W,height:H,viewBox:'0 0 '+W+' '+H,role:'img','aria-label':'Price chart with trendline'},box);
   var tip=document.createElement('div');tip.className='tip';box.appendChild(tip);
   // grid
@@ -400,8 +410,17 @@ function bigChart(box,A){
   el('path',{d:path(A.s200a),fill:'none',stroke:'var(--l-200)','stroke-width':1.6},svg);
   el('path',{d:path(A.s50a),fill:'none',stroke:'var(--l-50)','stroke-width':1.6},svg);
   if(f)el('path',{d:path(tl),fill:'none',stroke:'var(--l-trend)','stroke-width':2,'stroke-dasharray':'7 5'},svg);
-  el('path',{d:path(vals),fill:'none',stroke:'var(--l-price)','stroke-width':2.2,'stroke-linejoin':'round','stroke-linecap':'round'},svg);
-  el('circle',{cx:X(n-1),cy:Y(vals[n-1]),r:4,fill:'var(--card)',stroke:'var(--l-price)','stroke-width':2.2},svg);
+  if(cand){
+    var step=iw/Math.max(1,n-1+kk);
+    G.forEach(function(g){var x=(X(g.i0)+X(g.i1))/2,bw=Math.max(1.6,((g.i1-g.i0)*step+step)*0.68),col=g.c>=g.o?'var(--good)':'var(--bad)';
+      el('line',{x1:x,x2:x,y1:Y(g.h),y2:Y(g.l),stroke:col,'stroke-width':1.2},svg);
+      var y1=Y(Math.max(g.o,g.c)),y2=Y(Math.min(g.o,g.c));el('rect',{x:x-bw/2,y:y1,width:bw,height:Math.max(1,y2-y1),fill:col,rx:bw>5?1:0},svg);
+      if(vh){var bh=g.v/maxV*(vh-6);el('rect',{x:x-bw/2,y:H-m.b-bh,width:bw,height:bh,fill:col,opacity:.35},svg)}});
+    if(vh){var vt=el('text',{x:m.l-6,y:H-m.b-vh+14,'text-anchor':'end'},svg);vt.textContent='Vol'}
+  }else{
+    el('path',{d:path(vals),fill:'none',stroke:'var(--l-price)','stroke-width':2.2,'stroke-linejoin':'round','stroke-linecap':'round'},svg);
+    el('circle',{cx:X(n-1),cy:Y(vals[n-1]),r:4,fill:'var(--card)',stroke:'var(--l-price)','stroke-width':2.2},svg);
+  }
   // x-axis labels: custom ticks (1D/1W) or months
   if(A.ticks){var lx=-99;A.ticks.forEach(function(t){var x=X(t.i);if(x-lx<46||x<m.l+14)return;lx=x;
     el('line',{x1:x,x2:x,y1:H-m.b,y2:H-m.b+4,stroke:'var(--line)'},svg);var tx=el('text',{x:x,y:H-7,'text-anchor':'middle'},svg);tx.textContent=t.label})}
@@ -409,12 +428,15 @@ function bigChart(box,A){
   A.w.forEach(function(p,i){var mo=p[0].slice(0,7);if(mo===lastM)return;lastM=mo;if(i===0)return;if(cnt++%every)return;var x=X(i);if(x-lastX<44)return;lastX=x;
     el('line',{x1:x,x2:x,y1:H-m.b,y2:H-m.b+4,stroke:'var(--line)'},svg);var tx=el('text',{x:x,y:H-7,'text-anchor':'middle'},svg);var mm=+mo.slice(5);tx.textContent=mm===1?mo.slice(0,4):MON[mm-1]})}
   // hover
-  var vline=el('line',{x1:0,x2:0,y1:m.t,y2:m.t+ih,stroke:'var(--muted)','stroke-dasharray':'2 3',visibility:'hidden'},svg);
+  var vline=el('line',{x1:0,x2:0,y1:m.t,y2:m.t+ih+vh,stroke:'var(--muted)','stroke-dasharray':'2 3',visibility:'hidden'},svg);
   var dot=el('circle',{r:4,fill:'var(--l-price)',visibility:'hidden'},svg);
   var hit=el('rect',{x:m.l,y:m.t,width:iw,height:ih,fill:'transparent'},svg);
-  function mv(e){var b=svg.getBoundingClientRect(),x=e.clientX-b.left,i=Math.max(0,Math.min(n-1,Math.round((x-m.l)/iw*(n-1))));
-    var X0=X(i);vline.setAttribute('x1',X0);vline.setAttribute('x2',X0);vline.setAttribute('visibility','visible');dot.setAttribute('cx',X0);dot.setAttribute('cy',Y(vals[i]));dot.setAttribute('visibility','visible');
-    var h='<b>'+(A.tipl?A.tipl(i):fdate(A.w[i][0]))+'</b><i style="background:var(--l-price)"></i>Price '+fp(vals[i]);
+  function mv(e){var b=svg.getBoundingClientRect(),x=e.clientX-b.left,i=Math.max(0,Math.min(n-1,Math.round((x-m.l)/iw*Math.max(1,n-1+kk)-kk/2)));
+    var X0=X(i);vline.setAttribute('x1',X0);vline.setAttribute('x2',X0);vline.setAttribute('visibility','visible');dot.setAttribute('cx',X0);dot.setAttribute('cy',Y(vals[i]));dot.setAttribute('visibility',cand?'hidden':'visible');
+    var lab=function(j){return A.tipl?A.tipl(j):fdate(A.w[j][0])},h;
+    if(cand){var gg=G.filter(function(g){return i>=g.i0&&i<=g.i1})[0];
+      h='<b>'+(gg.i1>gg.i0?lab(gg.i0)+' – '+lab(gg.i1):lab(i))+'</b>Open '+fp(gg.o)+' · High '+fp(gg.h)+'<br>Low '+fp(gg.l)+' · <span class="'+(gg.c>=gg.o?'up':'dn')+'">Close '+fp(gg.c)+' ('+pct(gg.c/gg.o-1)+')</span>'+(gg.v?'<br>Volume '+(gg.v>=1e6?(gg.v/1e6).toFixed(1)+'M':gg.v>=1e3?(gg.v/1e3).toFixed(0)+'K':gg.v):'');}
+    else h='<b>'+lab(i)+'</b><i style="background:var(--l-price)"></i>Price '+fp(vals[i]);
     if(f)h+='<br><i style="background:var(--l-trend)"></i>Trendline '+fp(tl[i])+' ('+pct(vals[i]/tl[i]-1)+')';
     if(A.s50a[i]!=null)h+='<br><i style="background:var(--l-50)"></i>50-day '+fp(A.s50a[i]);
     if(A.s200a[i]!=null)h+='<br><i style="background:var(--l-200)"></i>200-day '+fp(A.s200a[i]);
@@ -528,6 +550,10 @@ function detail(sym,keep){
     }
     $('detBody').querySelector('.verdict').insertAdjacentHTML('beforeend','<div class="note" style="margin-top:4px">Signal is based on the '+range+' daily trend.</div>');
   }else bigChart($('big'),A);
+  var lg=$('big').previousElementSibling;
+  if(CMODE==='candle'&&lg.firstChild)lg.firstChild.outerHTML='<span class="up2">Up</span><span class="dn2">Down</span>';
+  lg.insertAdjacentHTML('beforeend','<div class="tabs" id="cTabs" role="tablist"><button type="button" data-c="line" aria-selected="'+(CMODE==='line')+'">Line</button><button type="button" data-c="candle" aria-selected="'+(CMODE==='candle')+'">Candles</button></div>');
+  $('cTabs').onclick=function(e){var b=e.target.closest('[data-c]');if(!b)return;CMODE=b.getAttribute('data-c');try{localStorage.setItem('stocksChart',CMODE)}catch(x){}detail(sym,true)};
   $('dTabs').onclick=function(e){var b=e.target.closest('[data-r]');if(!b)return;dRange=b.getAttribute('data-r');detail(sym,true)};
 }
 function openOv(id){$(id).classList.add('open');$(id).setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}

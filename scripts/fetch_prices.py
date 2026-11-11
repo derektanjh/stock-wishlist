@@ -65,8 +65,16 @@ def fetch(symbol, old):
         return None, str(e), "not_found"
     except Exception as e:
         return None, f"Price service unavailable ({e}). Will retry on the next update", "unavailable"
-    # adjClose is split-adjusted, so trendlines don't jump at a stock split; the latest adjClose equals the real close
-    closes = [[r["date"][:10], round(float(r.get("adjClose") or r["close"]), 4)] for r in rows if r.get("close") is not None]
+    # Each day: [date, close, open, high, low, volume]. Close stays in position 1 so older readers still work.
+    # Adjusted values are split-adjusted, so charts don't jump at a stock split; the latest adjusted close equals the real close.
+    def r4(v):
+        return round(float(v), 4) if v is not None else None
+    closes = []
+    for r in rows:
+        if r.get("close") is None:
+            continue
+        c = r4(r.get("adjClose") or r["close"])
+        closes.append([r["date"][:10], c, r4(r.get("adjOpen")) or c, r4(r.get("adjHigh")) or c, r4(r.get("adjLow")) or c, int(r.get("adjVolume") or r.get("volume") or 0)])
     if len(closes) < 2:
         return None, "No prices returned", "unavailable"
     return {"name": name, "currency": "USD", "exchange": exch or "", "price": closes[-1][1], "price_time": rows[-1]["date"], "closes": closes}, None, None
@@ -89,21 +97,24 @@ def live_prices(symbols):
         if sym and price and r.get("timestamp"):
             # 2026-11-11T12:08:11.463092717-05:00 -> 2026-11-11T12:08:11.463-05:00 (browsers can't read 9 decimals)
             ts = re.sub(r"(\.\d{3})\d+", r"\1", r["timestamp"])
-            out[sym] = {"price": round(float(price), 4), "prev": r.get("prevClose"), "time": ts}
+            out[sym] = {"price": round(float(price), 4), "prev": r.get("prevClose"), "time": ts,
+                        "open": r.get("open"), "high": r.get("high"), "low": r.get("low"), "volume": r.get("volume")}
     return out
 
 
 def intraday(symbol):
-    """Last 5 trading days in 15-minute steps, as [["2026-11-11T09:30", price], ...] in New York time."""
+    """Last 5 trading days in 15-minute steps, as [["2026-11-11T09:30", close, open, high, low, volume], ...] in New York time."""
     t = urllib.parse.quote(symbol.lower().replace(".", "-"))
     start = (datetime.now(timezone.utc) - timedelta(days=9)).strftime("%Y-%m-%d")
-    rows = call(t + "/prices", {"startDate": start, "resampleFreq": "15min", "columns": "date,close"}, base=IEX)
+    rows = call(t + "/prices", {"startDate": start, "resampleFreq": "15min", "columns": "date,open,high,low,close,volume"}, base=IEX)
     pts = []
     for r in rows or []:
         if r.get("close") is None:
             continue
         d = datetime.fromisoformat(r["date"].replace("Z", "+00:00")).astimezone(NY)
-        pts.append([d.strftime("%Y-%m-%dT%H:%M"), round(float(r["close"]), 4)])
+        c = round(float(r["close"]), 4)
+        f = lambda k: round(float(r[k]), 4) if r.get(k) is not None else c
+        pts.append([d.strftime("%Y-%m-%dT%H:%M"), c, f("open"), f("high"), f("low"), int(r.get("volume") or 0)])
     days = sorted({p[0][:10] for p in pts})[-5:]
     return [p for p in pts if p[0][:10] in days]
 
