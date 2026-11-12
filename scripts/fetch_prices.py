@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 NY = ZoneInfo("America/New_York")
-INTRA_MAX = 20  # intraday costs 1 request per stock per run; Tiingo's free plan allows ~50 an hour
+INTRA_MAX = 20  # intraday costs 1 request per stock, about twice an hour; Tiingo's free plan allows ~50 an hour
 
 API = "https://api.tiingo.com/tiingo/daily/"
 IEX = "https://api.tiingo.com/iex/"
@@ -157,9 +157,12 @@ def main():
         if lv and lv["time"][:10] > last_day:
             q["live"] = lv
     print(f"Live prices for {len([q for q in quotes.values() if 'live' in q])}/{len(quotes)} tickers")
+    # live runs come every 10 min; refresh 15-minute candles only on every third one (about every 30 min)
+    # so Tiingo's free limit (~50 requests an hour) isn't reached: 6 live requests + 2 x stocks an hour
+    intra_now = not live_only or datetime.now(timezone.utc).minute % 30 < 10
     n = 0
     for sym, q in quotes.items():
-        if not q.get("closes") or n >= INTRA_MAX:
+        if not intra_now or not q.get("closes") or n >= INTRA_MAX:
             continue
         n += 1
         try:

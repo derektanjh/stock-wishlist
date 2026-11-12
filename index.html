@@ -236,7 +236,7 @@ footer{max-width:1280px;margin:0 auto;padding:0 16px calc(28px + env(safe-area-i
   </div>
 </div>
 </main>
-<footer><span id="ftData">Prices: daily closes from Tiingo via GitHub Actions</span><span>·</span><span>Live prices (green dot) refresh about every 30 min in US market hours</span><span>·</span><span>Signals are maths on past prices, not financial advice</span><span>·</span><span>Stock Wishlist v1</span></footer>
+<footer><span id="ftData">Prices: daily closes from Tiingo via GitHub Actions</span><span>·</span><span>Live prices (green dot) refresh about every 10 min in US market hours</span><span>·</span><span>Signals are maths on past prices, not financial advice</span><span>·</span><span>Stock Wishlist v1</span></footer>
 
 <button class="btn fab" id="fab" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add stock</button>
 
@@ -648,8 +648,9 @@ function getJSON(name){
   return plain(name);
 }
 function plain(name){return fetch(name+'?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json()})}
+var busyLoad=false;
 function load(btn){
-  if(btn)btn.classList.add('loading');
+  if(btn)btn.classList.add('loading');busyLoad=true;setTimeout(function(){busyLoad=false},20000);
   return Promise.all([getJSON('stocks.json'),getJSON('prices.json')]).then(function(r){
     STOCKS=r[0].stocks||[];PRICES=r[1]||{quotes:{}};loaded=true;failed=false;offline=false;saveCache();
     Object.keys(waitFor).forEach(function(k){var q=PRICES.quotes[k];if(k==='*'?new Date(PRICES.updated)>waitFor[k]-60000:q&&(q.closes||q.error_kind==='not_found'))delete waitFor[k]});
@@ -662,7 +663,7 @@ function load(btn){
 }
 function watchPrices(){clearTimeout(wT);var tries=0;(function tick(){wT=setTimeout(function(){if(!Object.keys(waitFor).length)return;if(++tries>20){waitFor={};render();page('Prices are taking longer than usual. They will show on your next visit.','wait');return}load().then(function(){if(Object.keys(waitFor).length)tick();else page('New prices are in.',true)})},15000)})()}
 $('reload').onclick=function(){load($('reload'))};
-setInterval(function(){if(document.visibilityState==='visible'&&(STOCKS||[]).length)load()},300000); // pick up new live prices while open
+setInterval(function(){if(document.visibilityState==='visible'&&(STOCKS||[]).length&&!busyLoad)load()},60000); // pick up new live prices while open
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&(!cachedAt||Date.now()-cachedAt>120000))load()});
 var rt;addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(function(){if(cur&&$('big'))detail(cur,true)},150)});
 (function start(){
