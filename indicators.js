@@ -66,6 +66,8 @@
   // calc(B) gets {o,h,l,c,v,t,intra}; returns {lines:[], fills:[], dots:[], hist:[], levels:[], range:[min,max], steps:true}
   var LIST = [
     // ----- on the price chart -----
+    { id: 'swing', name: 'Swing plan lines (entry, stop, targets)', short: 'Swing plan', group: 'price', builtin: true,
+      help: 'Entry, stop-loss and Target 1/2 from the swing trade plan, on the daily ranges.' },
     { id: 'trend', name: 'Trendline channel (±2σ)', short: 'Trendline', group: 'price', builtin: true,
       help: 'Best-fit line through the period on a log scale, with a ±2σ band.' },
     { id: 'sma', name: 'Moving averages SMA 20 / 50 / 200', short: 'SMA 20/50/200', group: 'price',

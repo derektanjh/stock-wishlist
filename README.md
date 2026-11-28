@@ -12,5 +12,7 @@ Live site: https://derektanjh.github.io/stock-wishlist/
   - Panels below: Volume, RSI, MACD, Stochastic, Stochastic RSI, CCI, Williams %R, ADX/DMI, ATR, OBV, MFI, Chaikin Money Flow, Rate of Change, Awesome Oscillator, Aroon, historical volatility.
   - **Technical rating** (Strong sell … Strong buy): a vote of moving averages and oscillators on daily prices.
   - Volume-based indicators need daily data; the free plan has no volume for 15-minute prices.
+- **Swing trade plan (1–4 weeks)** for each stock: looks for a pullback-to-the-21-day-average, a breakout above the 20-day high (on strong volume) or an oversold bounce above the 200-day average, then gives an entry (or buy zone / breakout level to wait for), a stop-loss under the 10-day swing low sized by ATR, Target 1 and Target 2 with reward/risk, exit rules (half at T1 and stop to entry, rest at T2, a close below the 21-day average or ~4 weeks), and a backtest of the same rules on that stock's last 2 years. Plan lines can be drawn on the chart ("Swing plan lines").
+- **Long-term outlook**: 200-day average and slope, golden/death cross, 1-year trendline, Ichimoku cloud, ADX, 52-week position and target, rated Strong sell to Strong buy.
 - Signals and ratings are maths on past prices, not financial advice.
 - iPhone: open the site in Safari → Share → **Add to Home Screen**.
