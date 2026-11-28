@@ -96,6 +96,18 @@ h2{font-size:16px;margin:0 0 2px}
 .ichip[aria-pressed=true]{background:color-mix(in srgb,var(--accent) 14%,var(--card));border-color:var(--accent);color:var(--text);font-weight:650}
 .ichip[aria-pressed=true]::before{content:"✓ "}
 .ifoot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.hzw{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 8px}
+.hz{border:1px solid color-mix(in srgb,var(--c) 40%,var(--line));border-top:4px solid var(--c);border-radius:12px;padding:10px 14px;background:color-mix(in srgb,var(--c) 5%,var(--card))}
+.hz.buy{--c:var(--good)}.hz.down{--c:var(--bad)}.hz.watch{--c:var(--muted)}
+.hzh{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.hzh b{display:block;font-size:15px}.hzh span{font-size:12px;color:var(--muted)}
+.hzh em{font-style:normal;font-weight:700;font-size:16px;color:var(--c);white-space:nowrap}
+.hzs{font-size:13.5px;margin:4px 0 6px}
+.hz ul{list-style:none;margin:0;padding:0;font-size:12.5px;color:var(--text2)}.hz li{padding:2px 0 2px 20px;position:relative}
+.hz li::before{position:absolute;left:0;font-weight:700}.hz li.p::before{content:"✓";color:var(--good)}.hz li.n::before{content:"✗";color:var(--bad)}.hz li.z::before{content:"•";color:var(--muted)}
+.hztip{font-size:13.5px;margin:0 0 12px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.s-hz{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+td.hzc .sig{display:block;width:max-content;font-size:11px;padding:1px 7px;margin:1px 0}
+@media (max-width:640px){.hzw{grid-template-columns:1fr}}
 .trate{border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 12px}
 .trh{display:flex;justify-content:space-between;align-items:baseline;gap:10px}.trh span{font-size:13px;font-weight:650;color:var(--text2)}.trh b{font-size:17px}
 .trate.buy .trh b{color:var(--good)}.trate.down .trh b{color:var(--bad)}.trate.watch .trh b{color:var(--muted)}
@@ -545,23 +557,24 @@ function render(){
     var s=A.s,q=A.q||{},name=esc(q.name||s.note||''),cu=q.currency?'<small class="cur">'+esc(q.currency)+'</small>':'';
     var sig='<span class="sig '+A.sig.k+'">'+A.sig.t+'</span>';
     if(A.none){
-      rows+='<tr data-s="'+esc(s.symbol)+'"><td class="l sym"><b>'+esc(s.symbol)+'</b><span>'+name+'</span></td><td colspan="9" class="l dim">'+(A.nf?esc(q.error)+'.':q.error?'The price service was busy. It retries on the next update; tap Update prices now to try sooner.':'<span class="spin"></span>Prices will appear after the next price update.')+'</td><td class="sep">'+(s.target?fp(s.target):'')+'</td><td class="l">'+sig+'</td></tr>';
+      rows+='<tr data-s="'+esc(s.symbol)+'"><td class="l sym"><b>'+esc(s.symbol)+'</b><span>'+name+'</span></td><td colspan="8" class="l dim">'+(A.nf?esc(q.error)+'.':q.error?'The price service was busy. It retries on the next update; tap Update prices now to try sooner.':'<span class="spin"></span>Prices will appear after the next price update.')+'</td><td class="sep">'+(s.target?fp(s.target):'')+'</td><td class="l">'+sig+'</td><td class="sep"></td></tr>';
       cards+='<div class="stk" data-s="'+esc(s.symbol)+'"><div class="s-head"><div class="s-name"><b>'+esc(s.symbol)+'</b><span>'+name+'</span></div>'+sig+'</div><div class="s-meta">'+(A.nf?esc(q.error)+'.':q.error?'The price service was busy. It retries on the next update; tap Update prices now to try sooner.':'Prices will appear after the next price update.')+'</div></div>';
       return;
     }
-    var v200=A.s200?A.last/A.s200-1:null;
+    var v200=A.s200?A.last/A.s200-1:null,H=horizons(A);
     rows+='<tr data-s="'+esc(s.symbol)+'"><td class="l sym"><b>'+esc(s.symbol)+'</b><span>'+name+'</span></td>'+
       '<td class="sep">'+(A.live?'<span class="livedot" title="Live price, '+ago(A.live.time)+'"></span>':'')+'<b>'+fp(A.last)+'</b>'+cu+'</td><td class="'+cls(A.day)+'">'+pct(A.day,2)+'</td><td class="'+cls(A.m1)+'">'+pct(A.m1)+'</td><td class="'+cls(A.y1)+'">'+pct(A.y1)+'</td>'+
-      '<td class="sep l">'+A.trend+'</td><td class="'+cls(A.ann)+'">'+(A.fit?pct(A.ann,0)+'/yr':'–')+'</td><td>'+(A.fit?(A.z>0?'+':A.z<0?'−':'')+Math.abs(A.z).toFixed(1)+'σ':'–')+'</td><td class="'+cls(v200)+'">'+(v200!=null?pct(v200,0):'–')+'</td><td class="sep l">'+spark(A)+'</td>'+
-      '<td class="sep">'+(A.tgt?fp(A.tgt)+' <span class="'+(A.gap<=0?'up':'dim')+'">('+pct(A.gap,0)+')</span>':'<span class="dim">set target</span>')+'</td><td class="l">'+sig+'</td></tr>';
+      '<td class="sep '+cls(A.ann)+'" title="'+esc(A.trend)+'">'+(A.fit?pct(A.ann,0)+'/yr':'–')+'</td><td>'+(A.fit?(A.z>0?'+':A.z<0?'−':'')+Math.abs(A.z).toFixed(1)+'σ':'–')+'</td><td class="'+cls(v200)+'">'+(v200!=null?pct(v200,0):'–')+'</td><td class="sep l">'+spark(A)+'</td>'+
+      '<td class="sep">'+(A.tgt?fp(A.tgt)+' <span class="'+(A.gap<=0?'up':'dim')+'">('+pct(A.gap,0)+')</span>':'<span class="dim">set target</span>')+'</td><td class="l">'+sig+'</td><td class="sep l hzc">'+chipH(H.short,'S')+chipH(H.long,'L')+'</td></tr>';
     cards+='<div class="stk" data-s="'+esc(s.symbol)+'"><div class="s-head"><div class="s-name"><b>'+esc(s.symbol)+'</b><span>'+name+'</span></div>'+sig+'</div>'+
       '<div class="s-main"><div>'+(A.live?'<span class="livedot"></span>':'')+'<b>'+fp(A.last)+'</b>'+cu+'<span class="chg '+cls(A.day)+'">'+pct(A.day,2)+'</span></div>'+spark(A)+'</div>'+
       '<div class="s-grid"><div><b class="'+cls(A.ann)+'">'+(A.fit?pct(A.ann,0):'–')+'</b><span>Trend/yr</span></div><div><b>'+(A.fit?(A.z>0?'+':A.z<0?'−':'')+Math.abs(A.z).toFixed(1)+'σ':'–')+'</b><span>vs trendline</span></div><div><b class="'+(A.tgt&&A.gap<=0?'up':'')+'">'+(A.tgt?pct(A.gap,0):'–')+'</b><span>'+(A.tgt?'vs target':'No target')+'</span></div></div>'+
+      '<div class="s-hz">'+chipH(H.short,'Short:')+chipH(H.long,'Long:')+'</div>'+
       '<div class="s-meta">'+(A.live?'Live '+ago(A.live.time)+' · ':'')+A.trend+' · 1Y '+pct(A.y1)+(s.note?' · '+esc(s.note):'')+'</div></div>';
   });
   var none=!loaded?'<p class="empty"><span class="spin"></span>Loading wishlist…</p>':failed&&!STOCKS?'<p class="empty">Could not load your wishlist. Tap Refresh to try again.</p>':'<p class="empty">Your wishlist is empty. Tap <b>Add stock</b> to start watching one.</p>';
-  var head='<thead><tr class="grp"><th style="--c:var(--c-stock)">Stock</th><th colspan="4" class="sep" style="--c:var(--c-perf)">Performance</th><th colspan="5" class="sep" style="--c:var(--c-trend)">Trend · '+range+'</th><th colspan="2" class="sep" style="--c:var(--c-plan)">Your plan</th></tr>'+
-    '<tr><th class="l"></th><th class="sep">Price</th><th>Day</th><th>1M</th><th>1Y</th><th class="sep l">Direction</th><th>Per year</th><th>vs line</th><th>vs 200d</th><th class="sep l">Chart</th><th class="sep">Target</th><th class="l">Signal</th></tr></thead>';
+  var head='<thead><tr class="grp"><th style="--c:var(--c-stock)">Stock</th><th colspan="4" class="sep" style="--c:var(--c-perf)">Performance</th><th colspan="4" class="sep" style="--c:var(--c-trend)">Trend · '+range+'</th><th colspan="2" class="sep" style="--c:var(--c-plan)">Your plan</th><th class="sep" style="--c:var(--accent)">Outlook</th></tr>'+
+    '<tr><th class="l"></th><th class="sep">Price</th><th>Day</th><th>1M</th><th>1Y</th><th class="sep">Per year</th><th>vs line</th><th>vs 200d</th><th class="sep l">Chart</th><th class="sep">Target</th><th class="l">Signal</th><th class="sep l">Short · Long</th></tr></thead>';
   $('list').innerHTML=L.length?'<table>'+head+'<tbody>'+rows+'</tbody></table>':none;
   $('cards').innerHTML=L.length?cards:none;
   // tiles
@@ -601,6 +614,58 @@ function intraView(A,rk){
 var dRange=null,indOpen=false;
 function indColor(id){var d=IND.BY[id];if(!d||!d.calc)return 'var(--l-trend)';try{var R=d.calc({t:['2000-01-01'],o:[1],h:[1],l:[1],c:[1],v:[1]});var L=(R.lines||[])[0]||(R.dots||[])[0]||(R.fills||[])[0]||(R.hlines||[])[0];return L&&L.c||'var(--muted)'}catch(e){return 'var(--muted)'}}
 // technical rating: a vote across moving averages and oscillators on the daily prices (like TradingView's summary, calculated here)
+/* ---------- short-term and long-term outlook (calculated here from daily prices; not advice) ---------- */
+var HCACHE={};
+function horizons(A){
+  var key=A.s.symbol+'|'+A.c.length+'|'+A.last;if(HCACHE[key])return HCACHE[key];
+  var B=barsOf(A.c,false),n=B.c.length,c=B.c[n-1],L=function(a){return a[n-1]},P=function(a,k){return a[n-1-(k||1)]};
+  function line(id,i){return IND.BY[id].calc(B).lines[i||0].d}
+  function grade(xs){var sc=xs.length?xs.reduce(function(a,x){return a+x.v},0)/xs.length:0;
+    return {score:sc,label:sc>0.5?'Strong buy':sc>0.15?'Buy':sc<-0.5?'Strong sell':sc<-0.15?'Sell':'Neutral',k:sc>0.15?'buy':sc<-0.15?'down':'watch',checks:xs}}
+  var S=[],Lg=[];
+  if(n>=35){
+    var r=line('rsi');if(L(r)!=null){var rv=L(r),up=rv>P(r);
+      S.push(rv<30?{v:1,t:'RSI '+rv.toFixed(0)+': oversold, often bounces from here'}:rv>70?{v:-1,t:'RSI '+rv.toFixed(0)+': overbought, prone to pull back'}:rv>=50&&up?{v:1,t:'RSI '+rv.toFixed(0)+' and rising: momentum building'}:rv<50&&!up?{v:-1,t:'RSI '+rv.toFixed(0)+' and falling: momentum fading'}:{v:0,t:'RSI '+rv.toFixed(0)+': neutral'})}
+    var mc=IND.BY.macd.calc(B),m=mc.lines[0].d,sg=mc.lines[1].d,hh=mc.hist[0].d;if(L(m)!=null&&L(sg)!=null){
+      var cross=[1,2,3].some(function(k){return (P(m,k)-P(sg,k))*(L(m)-L(sg))<0});
+      S.push(L(m)>L(sg)&&L(hh)>=P(hh)?{v:1,t:cross?'MACD just crossed above its signal line':'MACD above its signal line and strengthening'}:L(m)<L(sg)&&L(hh)<=P(hh)?{v:-1,t:cross?'MACD just crossed below its signal line':'MACD below its signal line and weakening'}:{v:0,t:'MACD flattening near its signal line'})}
+    var st=IND.BY.stoch.calc(B).lines,k=L(st[0].d),d=L(st[1].d);if(k!=null&&d!=null)
+      S.push(k<20&&k>d?{v:1,t:'Stochastic turning up from oversold'}:k>80&&k<d?{v:-1,t:'Stochastic turning down from overbought'}:k<20?{v:0,t:'Stochastic oversold, not turned up yet'}:k>80?{v:0,t:'Stochastic overbought, still rising'}:{v:0,t:'Stochastic in the middle ('+k.toFixed(0)+')'});
+    var e9=L(IND.ema(B.c,9)),e21=L(IND.ema(B.c,21));if(e9!=null&&e21!=null)
+      S.push(c>e9&&c>e21&&e9>e21?{v:1,t:'Above its 9- and 21-day averages, which point up'}:c<e9&&c<e21&&e9<e21?{v:-1,t:'Below its 9- and 21-day averages, which point down'}:{v:0,t:'Mixed against its 9- and 21-day averages'});
+    var bb=IND.BY.bb.calc(B).lines,bu=L(bb[0].d),bl=L(bb[2].d);if(bu!=null)
+      S.push(c<bl?{v:1,t:'Below the lower Bollinger band: stretched down, bounce likely'}:c>bu?{v:-1,t:'Above the upper Bollinger band: stretched up'}:{v:0,t:'Inside its Bollinger bands'});
+    var su=IND.BY.supertrend.calc(B).lines;if(L(su[0].d)!=null||L(su[1].d)!=null)
+      S.push(L(su[0].d)!=null?{v:1,t:'Supertrend is up'}:{v:-1,t:'Supertrend is down'});
+  }
+  if(n>=60){
+    var s200=L(IND.sma(B.c,200)),s50=L(IND.sma(B.c,50));
+    if(s200!=null){Lg.push(c>s200?{v:1,t:'Above its 200-day average ('+pct(c/s200-1,0)+')'}:{v:-1,t:'Below its 200-day average ('+pct(c/s200-1,0)+')'});
+      Lg.push(s50>s200?{v:1,t:'Golden cross: 50-day average above the 200-day'}:{v:-1,t:'Death cross: 50-day average below the 200-day'});
+      var s200a=IND.sma(B.c,200),old=P(s200a,20);if(old!=null)Lg.push(s200>old?{v:1,t:'200-day average is rising'}:{v:-1,t:'200-day average is falling'})}
+    else if(s50!=null)Lg.push(c>s50?{v:1,t:'Above its 50-day average (under 200 days of history)'}:{v:-1,t:'Below its 50-day average (under 200 days of history)'});
+    var y=B.c.slice(-252),f=y.length>=120?reg(y):null;if(f){var ann=Math.exp(f.b*252)-1;
+      Lg.push(ann>=0.1&&f.r2>=0.3?{v:1,t:'1-year trendline rising '+pct(ann,0)+' a year'}:ann<=-0.1&&f.r2>=0.3?{v:-1,t:'1-year trendline falling '+pct(ann,0)+' a year'}:{v:0,t:'1-year trend mostly sideways ('+pct(ann,0)+'/yr)'})}
+    var ic=IND.BY.ichimoku.calc(B).lines,sa=L(ic[3].d),sb=L(ic[4].d);if(sa!=null&&sb!=null)
+      Lg.push(c>Math.max(sa,sb)?{v:1,t:'Above the Ichimoku cloud'}:c<Math.min(sa,sb)?{v:-1,t:'Below the Ichimoku cloud'}:{v:0,t:'Inside the Ichimoku cloud (undecided)'});
+    var ax=IND.BY.adx.calc(B).lines,adx=L(ax[0].d);if(adx!=null)
+      Lg.push(adx>=25?(L(ax[1].d)>L(ax[2].d)?{v:1,t:'Strong uptrend (ADX '+adx.toFixed(0)+')'}:{v:-1,t:'Strong downtrend (ADX '+adx.toFixed(0)+')'}):{v:0,t:'No strong trend (ADX '+adx.toFixed(0)+')'});
+    var hi=Math.max.apply(null,B.h.slice(-252)),dd=c/hi-1;
+    Lg.push(dd>-0.1?{v:1,t:'Near its 52-week high ('+pct(dd,0)+')'}:dd<-0.35?{v:-1,t:'Far below its 52-week high ('+pct(dd,0)+')'}:{v:0,t:pct(dd,0)+' from its 52-week high'});
+    if(A.tgt)Lg.push(c<=A.tgt?{v:1,t:'At or under your target of '+fp(A.tgt)}:{v:0,t:'Needs a '+pct(1-A.tgt/c,0).replace('+','')+' drop to reach your target of '+fp(A.tgt)});
+  }
+  var gs=grade(S),gl=grade(Lg),SAY={
+    s:{'Strong buy':'Momentum and timing look good for buying now.','Buy':'Leaning positive for the next few weeks.','Neutral':'No clear short-term edge, so no rush.','Sell':'Short-term momentum is weak; waiting may get a better price.','Strong sell':'Short-term momentum is clearly negative; better to wait.'},
+    l:{'Strong buy':'A strong, healthy long-term uptrend.','Buy':'The long-term trend is positive.','Neutral':'The long-term trend is mixed or sideways.','Sell':'The long-term trend is weakening.','Strong sell':'In a long-term downtrend; riskier to hold.'}};
+  gs.say=SAY.s[gs.label];gl.say=SAY.l[gl.label];
+  var tip=gl.k==='buy'&&gs.k==='buy'?'Trend and timing agree: both point up.':gl.k==='buy'&&gs.k==='down'?'Good long-term trend, poor timing: consider waiting for the dip to finish, or buying in small parts.':gl.k==='buy'?'Healthy long-term trend; short-term timing is neutral.':gl.k==='down'&&gs.k==='buy'?'A short-term bounce inside a long-term downtrend: be careful chasing it.':gl.k==='down'?'The long-term trend is down; most investors wait for it to turn first.':gs.k==='buy'?'Short-term momentum is up, but the long-term trend hasn\'t confirmed yet.':'No strong signal either way right now.';
+  return HCACHE[key]={short:gs,long:gl,tip:tip,ok:S.length>0||Lg.length>0};
+}
+function chipH(g,pre){return '<span class="sig '+g.k+'" title="'+esc(g.say)+'">'+pre+' '+g.label+'</span>'}
+function horizonHTML(A){var H=horizons(A);if(!H.ok)return '';
+  function box(g,title,sub){return '<div class="hz '+g.k+'"><div class="hzh"><div><b>'+title+'</b><span>'+sub+'</span></div><em>'+g.label+'</em></div><div class="hzs">'+g.say+'</div><ul>'+
+    g.checks.map(function(x){return '<li class="'+(x.v>0?'p':x.v<0?'n':'z')+'">'+esc(x.t)+'</li>'}).join('')+'</ul></div>'}
+  return '<div class="hzw">'+box(H.short,'Short term','days to a few weeks')+box(H.long,'Long term','months to years')+'</div><div class="hztip">💡 '+H.tip+' <span class="note">Calculated from past prices, not financial advice.</span></div>'}
 function techRating(A){var r=IND.rating(barsOf(A.c,false));if(!r)return '';
   var k=r.score>0.1?'buy':r.score<-0.1?'down':'watch',bar=Math.round((r.score+1)*50);
   return '<div class="trate '+k+'"><div class="trh"><span>Technical rating</span><b>'+r.label+'</b></div>'+
@@ -620,7 +685,7 @@ function detail(sym,keep){
   $('detBody').innerHTML='<div class="d-top"><div><div class="d-price">'+fp(A.last)+' <small class="cur">'+esc(q.currency||'')+'</small><span class="chg '+cls(A.day)+'">'+pct(A.day,2)+' today</span></div><div class="note">'+(A.live?'<span class="livedot"></span>Live price (IEX) · '+ago(A.live.time):'Close on '+fdate(A.c[A.c.length-1][0]))+'</div></div>'+tabs+'</div>'+
     '<div class="legend" id="lg"></div><div class="indp" id="indP"'+(indOpen?'':' hidden')+'></div>'+
     '<div class="chartwrap" id="big"></div>'+
-    '<div class="verdict '+A.sig.k+'"><b>'+A.sig.t+'</b> · '+A.sig.why+'</div>'+techRating(A)+
+    '<div class="verdict '+A.sig.k+'"><b>'+A.sig.t+'</b> · '+A.sig.why+'</div>'+horizonHTML(A)+techRating(A)+
     '<div class="stats">'+
       st('Trend over '+rk,A.fit?'<span class="'+cls(A.ann)+'">'+pct(A.ann,1)+'</span>/yr':'–',A.fit?A.trend+' · R² '+A.fit.r2.toFixed(2):'Needs 20+ days')+
       st('vs trendline',A.fit?(A.z>0?'+':A.z<0?'−':'')+Math.abs(A.z).toFixed(2)+'σ':'–',A.fit?'Line at '+fp(A.tl)+' ('+pct(A.last/A.tl-1)+')':'')+
