@@ -7,6 +7,8 @@ on:
     - cron: "23 1-7 * * 2-6"
     # Last run of the morning: write the screen even if a few tickers are missing (e.g. a US holiday)
     - cron: "23 8 * * 2-6"
+    # Saturday catch-up, hourly: finishes anything still missing for Friday's session (runs with nothing to fetch make no requests)
+    - cron: "53 9-20 * * 6"
   workflow_dispatch:
     inputs:
       force:
