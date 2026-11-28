@@ -11,6 +11,12 @@ on:
     branches: [main]
     paths: [stocks.json]
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "full = 2-year history + live; live = latest prices only (used when the page is opened)"
+        default: full
+        type: choice
+        options: [full, live]
 
 permissions:
   contents: write
@@ -28,7 +34,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Fetch prices
-        run: python scripts/fetch_prices.py ${{ github.event.schedule == '7,17,27,37,47,57 13-21 * * 1-5' && '--live' || '' }}
+        run: python scripts/fetch_prices.py ${{ (github.event.schedule == '7,17,27,37,47,57 13-21 * * 1-5' || inputs.mode == 'live') && '--live' || '' }}
         env:
           TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
       - name: Commit prices.json

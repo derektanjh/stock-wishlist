@@ -767,10 +767,23 @@ function load(btn){
     else{failed=true;render();page('Could not load the wishlist ('+(e&&e.message||e)+'). Tap Refresh to try again.',false)}
   });
 }
+/* fetch the latest prices when the portal is opened (needs the token's Actions permission) */
+var AUTOKEY='stocksAutoAt';
+function usMarketOpen(){try{var p={};new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',weekday:'short',hour:'numeric',minute:'numeric',hourCycle:'h23'}).formatToParts(new Date()).forEach(function(x){p[x.type]=x.value});
+  var mins=(+p.hour)*60+(+p.minute);return ['Sat','Sun'].indexOf(p.weekday)<0&&mins>=9*60+25&&mins<=16*60+10}catch(e){return false}}
+function autoRefresh(){
+  var tok=store.get(TOKKEY);if(!tok||!STOCKS||!STOCKS.length||!usMarketOpen())return;
+  var upd=PRICES&&PRICES.updated?new Date(PRICES.updated).getTime():0,last=+(store.get(AUTOKEY)||0),now=Date.now();
+  if(now-upd<5*60000||now-last<10*60000||waitFor['*'])return; // fresh enough, or asked recently
+  store.set(AUTOKEY,String(now));
+  fetch(API+'/actions/workflows/stock-prices.yml/dispatches',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},H(tok)),body:JSON.stringify({ref:'main',inputs:{mode:'live'}})}).then(function(r){
+    if(r.status===204){waitFor['*']=now;render();watchPrices()}
+  },function(){});
+}
 function watchPrices(){clearTimeout(wT);var tries=0;(function tick(){wT=setTimeout(function(){if(!Object.keys(waitFor).length)return;if(++tries>20){waitFor={};render();page('Prices are taking longer than usual. They will show on your next visit.','wait');return}load().then(function(){if(Object.keys(waitFor).length)tick();else page('New prices are in.',true)})},15000)})()}
 $('reload').onclick=function(){load($('reload'))};
 setInterval(function(){if(document.visibilityState==='visible'&&(STOCKS||[]).length&&!busyLoad)load()},60000); // pick up new live prices while open
-document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&(!cachedAt||Date.now()-cachedAt>120000))load()});
+document.addEventListener('visibilitychange',function(){if(document.visibilityState!=='visible')return;if(!cachedAt||Date.now()-cachedAt>120000)load().then(autoRefresh);else autoRefresh()});
 var rt;addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(function(){if(cur&&$('big'))detail(cur,true)},150)});
 (function start(){
   try{var r=localStorage.getItem(RK);if(WIN[r])range=r}catch(e){}
@@ -778,7 +791,7 @@ var rt;addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(funct
   var C=sget(CK);if(C&&C.stocks){STOCKS=C.stocks;PRICES=C.prices||{quotes:{}};cachedAt=C.at;loaded=true}
   render();
   if(loaded&&window.portalReady)window.portalReady();
-  load();
+  load().then(autoRefresh); // then ask for the latest prices if they're stale during US market hours
 })();
 </script>
 </body>
