@@ -87,14 +87,27 @@ console.log(`Session ${want}: fetched ${updated} (${calls} calls, ${failed} fail
 
 if (pending.length && !FORCE) { console.log('Screen not written yet: waiting for the remaining tickers on the next run'); process.exit(0); }
 
+/* ---------- market context: SPY/QQQ, breadth, relative-strength ranking ---------- */
+const hist = {}; for (const [sym] of universe) { const h = load(sym); if (h.bars && h.bars.length >= 60) hist[sym] = h.bars; }
+const raws = [], ab50 = [], ab200 = [];
+for (const sym in hist) {
+  const c = hist[sym].map(b => b[1]), r = ctx.rsRaw(c); if (r != null && !/^(SPY|QQQ|IWM|DIA|TLT|GLD|SLV|IBIT|XL.|SMH|SOXX|ARKK)$/.test(sym)) raws.push(r);
+  const s50 = ctx.IND.sma(c, 50), s200 = ctx.IND.sma(c, 200), l = c[c.length - 1];
+  if (s50[c.length - 1] != null) ab50.push(l > s50[c.length - 1]); if (s200[c.length - 1] != null) ab200.push(l > s200[c.length - 1]);
+}
+const share = a => a.length ? Math.round(a.filter(Boolean).length / a.length * 1000) / 1000 : null;
+const market = hist.SPY ? { session: want, generated: new Date().toISOString(), spy: hist.SPY.slice(-260), qqq: hist.QQQ ? hist.QQQ.slice(-260) : null,
+  breadth: { a50: share(ab50), a200: share(ab200), n: ab50.length }, rsDist: raws.sort((a, b) => a - b).map(v => Math.round(v * 10000) / 10000) } : null;
+ctx.setMarket(market);
+
 /* ---------- screen ---------- */
 const items = [];
 for (const [sym, name] of universe) {
   const h = load(sym); const c = h.bars;
   if (!c || c.length < 60) continue;
   const A = { s: { symbol: sym }, c, last: c[c.length - 1][1], tgt: null };
-  let P, H;
-  try { P = ctx.swingPlan(A); H = ctx.horizons(A); } catch (e) { console.error(sym, 'analysis failed:', e.message); continue; }
+  let P, H, X;
+  try { P = ctx.swingPlan(A); H = ctx.horizons(A); X = ctx.proAnalysis(A); } catch (e) { console.error(sym, 'analysis failed:', e.message); continue; }
   if (P.none) continue;
   const n = c.length, cl = i => c[Math.max(0, n - 1 - i)][1], vol = c.slice(-21, -1).map(b => b[5]), va = vol.reduce((a, b) => a + b, 0) / (vol.length || 1);
   const hi52 = Math.max(...c.slice(-252).map(b => b[3]));
@@ -106,10 +119,14 @@ for (const [sym, name] of universe) {
     act: P.action, k: P.k, setup: P.setup ? P.setup.name : null, grade: P.setup ? P.setup.grade : null,
     plan: p ? { e: r2(p.entry), zl: P.zone ? r2(P.zone[0]) : null, zh: P.zone ? r2(P.zone[1]) : null, s: r2(p.stop), t1: r2(p.t1), t2: r2(p.t2), rr: r2(p.rr1) } : null,
     brk: r2(P.hiBreak), bt: P.bt.n ? { n: P.bt.n, w: r2(P.bt.winRate * 100), avg: r2(P.bt.avg * 100) } : null,
-    lg: H.long.label, lk: H.long.k, ls: r2(H.long.score)
+    lg: H.long.label, lk: H.long.k, ls: r2(H.long.score),
+    sc: X.none ? null : X.score, rs: X.none ? null : X.rs, tt: X.none || X.tt.na ? null : X.tt.n + '/' + X.tt.of, sq: X.none ? null : (X.sq.fired ? 'fired' : X.sq.on ? 'on' : X.sq.tight ? 'tight' : null),
+    vok: X.none ? null : X.vol.ok, rl: X.none || !X.rsLine ? null : X.rsLine.near
   });
 }
-const out = { session: want, generated: new Date().toISOString(), screened: items.length, of: universe.length, missing: pending, items };
+if (market) fs.writeFileSync(path.join(ROOT, 'market.json'), JSON.stringify(market) + '\n');
+const reg = ctx.marketRegime();
+const out = { session: want, market: reg ? { k: reg.k, label: reg.label } : null, generated: new Date().toISOString(), screened: items.length, of: universe.length, missing: pending, items };
 const body = JSON.stringify(out).replace(/\},\{"t"/g, '},\n{"t"');
 const prev = fs.existsSync(path.join(ROOT, 'screener.json')) ? JSON.parse(fs.readFileSync(path.join(ROOT, 'screener.json'), 'utf8')) : null;
 if (prev && prev.session === want && !FORCE && JSON.stringify(prev.items) === JSON.stringify(items)) { console.log('Screen unchanged'); process.exit(0); }

@@ -52,7 +52,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           [ -f screener.json ] || exit 0
-          git add screener.json
+          git add screener.json market.json 2>/dev/null || git add screener.json
           if git diff --cached --quiet; then echo "No changes"; exit 0; fi
           git commit -m "Update daily screen"
           for i in 1 2 3; do

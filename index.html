@@ -116,6 +116,19 @@ h2{font-size:16px;margin:0 0 2px}
 .addb[disabled]{color:var(--good);cursor:default}
 .s-plan{font-size:12.5px;color:var(--text2);margin-top:6px;font-variant-numeric:tabular-nums}.s-plan b{color:var(--text)}
 #scr .s-hz{margin-top:6px}
+.psc{display:flex;gap:12px;align-items:center;margin:8px 0;padding:8px 10px;border-radius:10px;background:var(--card);border:1px solid color-mix(in srgb,var(--c) 40%,var(--line))}
+.psc.buy{--c:var(--good)}.psc.watch{--c:var(--warn)}.psc.down{--c:var(--bad)}
+.pscn b{font-size:30px;font-weight:800;color:var(--c);font-variant-numeric:tabular-nums}.pscn span{font-size:13px;color:var(--muted)}
+.psl{font-weight:700}.psd{font-size:12px;color:var(--muted)}
+.pparts{display:grid;gap:3px;margin:0 0 8px}.pp{display:grid;grid-template-columns:120px 1fr;gap:2px 8px;align-items:center;font-size:12px}
+.pp span{color:var(--text2);font-weight:600}.pp i{display:block;height:6px;border-radius:9px;background:var(--soft)}.pp em{display:block;height:100%;border-radius:9px}.pp small{grid-column:2;color:var(--muted);font-size:11px;margin-top:-2px}
+.pchk{list-style:none;margin:0 0 6px;padding:0;font-size:12.5px;color:var(--text2)}.pchk>li{padding:3px 0 3px 20px;position:relative}
+.pchk li::before{position:absolute;left:0;font-weight:700}.pchk li.p::before{content:"✓";color:var(--good)}.pchk li.n::before{content:"✗";color:var(--bad)}.pchk li.z::before{content:"•";color:var(--muted)}
+.pchk details{display:inline}.pchk summary{display:inline;cursor:pointer;color:var(--accent);font-size:12px;margin-left:6px}.pchk ul{list-style:none;padding:4px 0 0;margin:0}
+.lnk{font:inherit;font-size:12.5px;color:var(--accent);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline}
+.acctf[hidden]{display:none}.acctf{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-top:6px}.acctf label{font-size:12px}.acctf input{min-height:36px;width:140px;font-size:15px}
+.mktb{border-radius:10px;padding:8px 12px;margin:0 0 8px;font-size:13px;border-left:4px solid var(--c);background:color-mix(in srgb,var(--c) 8%,var(--card))}
+.mktb.on{--c:var(--good)}.mktb.mixed{--c:var(--warn)}.mktb.off{--c:var(--bad)}
 .hztip{font-size:13.5px;margin:0 0 12px;padding:8px 12px;border-radius:10px;background:var(--soft)}
 .s-hz{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 td.hzc .sig{display:block;width:max-content;font-size:11px;padding:1px 7px;margin:1px 0}
@@ -262,6 +275,7 @@ footer{max-width:1280px;margin:0 auto;padding:0 16px calc(28px + env(safe-area-i
 <div class="card" id="scr">
   <div class="card-h"><div><h2>Today's screen · US stocks</h2><div class="note" id="scrSub">Loading the daily screen…</div></div>
     <div class="tabs" role="tablist" id="scrTabs"><button role="tab" type="button" data-t="setup" aria-selected="true">Swing setups</button><button role="tab" type="button" data-t="watch">Pullback watch</button><button role="tab" type="button" data-t="hot">Hot movers</button></div></div>
+  <div id="mkt"></div>
   <div class="note" id="scrHelp" style="margin:-4px 0 8px"></div>
   <div class="scroll tbl" id="scrList"></div>
   <div class="cards" id="scrCards"></div>
@@ -644,11 +658,28 @@ function swingHTML(A,H){
     :'<div class="swx"><b>Breakout level to watch:</b> '+fp(P.hiBreak)+'. Until then, no swing entry.</div>';
   var b=P.bt,bt=b.n?'<div class="swb"><b>This setup on '+esc(A.s.symbol)+' over the last 2 years:</b> '+b.n+' trade'+(b.n>1?'s':'')+' · Target 1 hit first '+b.win+' · stop hit first '+b.loss+(b.time?' · ran out of time '+b.time:'')+' · win rate '+Math.round(b.winRate*100)+'% · average '+pct(b.avg,1)+' per trade'+(b.n<5?' <span class="dim">(few trades, so treat this loosely)</span>':'')+'</div>'
     :'<div class="swb dim">No past trades with these rules on this stock in the last 2 years.</div>';
-  return '<div class="hz '+P.k+'"><div class="hzh"><div><b>Swing trade</b><span>1 to 4 weeks · momentum '+g.label.toLowerCase()+'</span></div><em>'+P.action+'</em></div>'+
-    '<div class="hzs">'+P.say+' Typical 2-week move about ±'+(P.move2w*100).toFixed(0)+'%.</div>'+plan+bt+
+  var X=proAnalysis(A),pro='',ex='';
+  if(!X.none){
+    pro='<div class="psc '+X.k+'"><div class="pscn"><b>'+X.score+'</b><span>/100</span></div><div><div class="psl">Swing score · '+X.label+'</div><div class="psd">How many things professional swing traders look for line up right now.</div></div></div>'+
+      '<div class="pparts">'+X.parts.map(function(q){var f=q.v/q.max;return '<div class="pp"><span>'+q.k+'</span><i><em style="width:'+Math.round(f*100)+'%;background:'+(f>=0.66?'var(--good)':f>=0.4?'var(--warn)':'var(--bad)')+'"></em></i><small>'+esc(q.t)+'</small></div>'}).join('')+'</div>'+
+      '<ul class="pchk">'+
+        (X.regime?'<li class="'+(X.regime.k==='on'?'p':X.regime.k==='off'?'n':'z')+'"><b>Market:</b> '+X.regime.label+'. '+X.regime.say+'</li>':'')+
+        (X.rs!=null?'<li class="'+(X.rs>=70?'p':X.rs<40?'n':'z')+'"><b>Relative strength '+X.rs+':</b> did better than '+X.rs+'% of the ~200 screened stocks over the past year'+(X.rsLine?(X.rsLine.near?'; its RS line vs SPY is near a 52-week high (leading the market)':'; RS line '+pct(X.rsLine.pct,0)+' below its high'):'')+'.</li>':'<li class="z"><b>Relative strength:</b> appears once the daily screen has run.</li>')+
+        (!X.tt.na?'<li class="'+(X.tt.n>=X.tt.of-1?'p':X.tt.n<=X.tt.of/2?'n':'z')+'"><b>Trend template '+X.tt.n+'/'+X.tt.of+'</b><details><summary>show checks</summary><ul>'+X.tt.checks.map(function(q){return '<li class="'+(q.ok?'p':'n')+'">'+esc(q.t)+'</li>'}).join('')+'</ul></details></li>':'')+
+        '<li class="'+(X.sq.fired||X.sq.on||X.sq.tight?'p':'z')+'"><b>Volatility:</b> '+X.sq.t+'.</li>'+
+        (!X.vol.na?'<li class="'+(X.vol.ok===true?'p':X.vol.ok===false?'n':'z')+'"><b>Volume:</b> '+X.vol.t+(X.vol.acc?'. '+X.vol.acc:'')+'.</li>':'')+
+      '</ul>';
+    if(p){var ac=sget('stocksAcct')||{},ps=positionSize(p.entry,p.stop,+ac.acct,+ac.risk||1,25);
+      ex='<div class="swx"><b>Trailing stop now:</b> '+fp(X.trail.stop)+' (the higher of the 21-day average '+fp(X.trail.e21)+' and a 3×ATR stop below the 22-day high, '+fp(X.trail.chand)+'). Once in profit, raise your stop to this and let winners run. <b>Time stop:</b> if it hasn\'t reached Target 1 by '+fdate(X.timeStop)+' (~3 weeks), exit.</div>'+
+        '<div class="swx psz">'+(ps?'<b>Position size:</b> '+ps.shares+' shares ≈ US$'+Math.round(ps.value).toLocaleString()+' ('+(ps.pctAcct*100).toFixed(0)+'% of your account). If the stop is hit you lose about US$'+Math.round(ps.risk).toLocaleString()+' ('+(+ac.risk||1)+'% risk)'+(ps.capped?', capped at 25% of the account':'')+'. <button type="button" class="lnk" data-acct>change</button>'
+          :'<b>Position size:</b> <button type="button" class="lnk" data-acct>Set your account size</button> to see how many shares to buy so one loss is a small, fixed % of your account.')+
+        '<div class="acctf" hidden><label>Account size (US$)<input type="number" inputmode="decimal" class="acA" value="'+(ac.acct||'')+'"></label><label>Risk per trade (%)<input type="number" inputmode="decimal" step="0.25" class="acR" value="'+(ac.risk||1)+'"></label><button type="button" class="btn small acS">Save</button><span class="note">Pros usually risk 0.5–2% per trade. Saved on this device only.</span></div></div>'}
+  }
+  return '<div class="hz '+P.k+'"><div class="hzh"><div><b>Swing trade</b><span>1 to 4 weeks · momentum '+g.label.toLowerCase()+'</span></div><em>'+P.action+'</em></div>'+pro+
+    '<div class="hzs">'+P.say+' Typical 2-week move about ±'+(P.move2w*100).toFixed(0)+'%.</div>'+plan+ex+bt+
     '<details class="swd"><summary>Momentum checks ('+g.checks.length+')</summary><ul>'+g.checks.map(function(x){return '<li class="'+(x.v>0?'p':x.v<0?'n':'z')+'">'+esc(x.t)+'</li>'}).join('')+'</ul></details></div>';
 }
-function swChip(A,pre){var P=swingPlan(A);if(P.none)return '';var p=P.plan;return '<span class="sig '+P.k+'" title="'+esc(P.say)+'">'+pre+' '+P.action+(p&&!P.planned?' · T1 '+fp(p.t1):'')+'</span>'}
+function swChip(A,pre){var P=swingPlan(A);if(P.none)return '';var p=P.plan,X=proAnalysis(A);return '<span class="sig '+P.k+'" title="'+esc(P.say)+'">'+pre+(X.none?'':' '+X.score)+' · '+P.action+(p&&!P.planned?' · T1 '+fp(p.t1):'')+'</span>'}
 function chipH(g,pre){return '<span class="sig '+g.k+'" title="'+esc(g.say)+'">'+pre+' '+g.label+'</span>'}
 function horizonHTML(A){var H=horizons(A);if(!H.ok)return '';
   function box(g,title,sub){return '<div class="hz '+g.k+'"><div class="hzh"><div><b>'+title+'</b><span>'+sub+'</span></div><em>'+g.label+'</em></div><div class="hzs">'+g.say+'</div><ul>'+
@@ -820,13 +851,14 @@ var SCRHELP={setup:'Stocks with a swing entry signal on the last close (pullback
   watch:'Strong uptrends (long-term Buy or better) waiting to pull back into their buy zone, strongest 1-month momentum first. Set an alert near the zone.',
   hot:'Biggest moves on unusually high volume on the last session (Vol× = volume vs its 20-day average): what traders are focused on. Not all are good entries.'};
 function scrRows(){if(!SCR)return [];var it=SCR.items||[];
-  if(scrTab==='setup')return it.filter(function(x){return x.act==='Buy setup'}).sort(function(a,b){return (a.grade||'Z').localeCompare(b.grade||'Z')||(b.ls-a.ls)||((b.bt?b.bt.avg:-99)-(a.bt?a.bt.avg:-99))}).slice(0,40);
-  if(scrTab==='watch')return it.filter(function(x){return (x.act==='Wait for pullback'||x.act==='Wait for turn-up')&&x.lk==='buy'}).sort(function(a,b){return b.m1-a.m1}).slice(0,30);
+  if(scrTab==='setup')return it.filter(function(x){return x.act==='Buy setup'}).sort(function(a,b){return ((b.sc||0)-(a.sc||0))||(a.grade||'Z').localeCompare(b.grade||'Z')}).slice(0,40);
+  if(scrTab==='watch')return it.filter(function(x){return (x.act==='Wait for pullback'||x.act==='Wait for turn-up')&&x.lk==='buy'}).sort(function(a,b){return ((b.sc||0)-(a.sc||0))||(b.m1-a.m1)}).slice(0,30);
   return it.slice().sort(function(a,b){return (b.rv||1)*Math.abs(b.d1)-(a.rv||1)*Math.abs(a.d1)}).slice(0,25)}
 function sp(v){return v==null?'–':(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1)+'%'}
 function scrRender(){
   document.querySelectorAll('#scrTabs [data-t]').forEach(function(b){var n=SCR?(function(t){var s=scrTab;scrTab=t;var c=scrRows().length;scrTab=s;return c})(b.dataset.t):0;b.setAttribute('aria-selected',b.dataset.t===scrTab);b.textContent={setup:'Swing setups',watch:'Pullback watch',hot:'Hot movers'}[b.dataset.t]+(SCR?' ('+n+')':'')});
   $('scrHelp').textContent=SCRHELP[scrTab];
+  var rg=marketRegime();$('mkt').innerHTML=rg?'<div class="mktb '+rg.k+'"><b>Market: '+rg.label+'</b> · '+[rg.spy,rg.qqq].filter(Boolean).map(function(x){return x.name+' '+pct(x.a50,1)+' vs 50-day, '+pct(x.a200,0)+' vs 200-day'}).join(' · ')+(rg.breadth&&rg.breadth.a50!=null?' · '+Math.round(rg.breadth.a50*100)+'% of screened stocks above their 50-day':'')+'<div class="note">'+rg.say+'</div></div>':'';
   if(!SCR){$('scrSub').textContent='The first screen appears after the next US session, by about 4 pm Malaysia time.';$('scrList').innerHTML='';$('scrCards').innerHTML='';return}
   var d=new Date(SCR.session+'T12:00:00');$('scrSub').textContent='After the '+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+d.getDate()+' '+MON[d.getMonth()]+' close · '+SCR.screened+' of '+SCR.of+' stocks screened · updated '+ago(SCR.generated);
   var R=scrRows(),have={};(STOCKS||[]).forEach(function(s){have[s.symbol]=1});
@@ -834,13 +866,13 @@ function scrRender(){
   var plan=function(x){var p=x.plan;if(!p)return 'Watch for a close above <b>'+fp(x.brk)+'</b>';
     return (x.act==='Buy setup'?'Entry <b>'+fp(p.e)+'</b>':'Buy zone <b>'+fp(p.zl)+'–'+fp(p.zh)+'</b>')+' · Stop <b>'+fp(p.s)+'</b> · T1 <b>'+fp(p.t1)+'</b> · T2 <b>'+fp(p.t2)+'</b> · R:R '+(p.rr!=null?p.rr.toFixed(1):'–')};
   var add=function(x){return '<button type="button" class="addb" data-add="'+esc(x.t)+'" title="'+(have[x.t]?'On your wishlist':'Add to wishlist')+'"'+(have[x.t]?' disabled>✓':'>＋')+'</button>'};
-  var chips=function(x){return '<span class="sig '+x.k+'">'+esc(x.act)+(x.grade?' · '+x.grade:'')+'</span><span class="sig '+x.lk+'">Long: '+esc(x.lg)+'</span>'};
+  var chips=function(x){return '<span class="sig '+x.k+'">'+esc(x.act)+(x.grade?' · '+x.grade:'')+'</span><span class="sig '+x.lk+'">Long: '+esc(x.lg)+'</span>'+(x.tt?'<span class="sig watch">Trend '+x.tt+'</span>':'')+(x.sq?'<span class="sig buy">Squeeze '+(x.sq==='fired'?'fired':x.sq==='on'?'on':'tight')+'</span>':'')};
   var bt=function(x){return x.bt?x.bt.w.toFixed(0)+'% · '+sp(x.bt.avg)+' ('+x.bt.n+')':'–'};
-  $('scrList').innerHTML='<table class="scrt"><thead><tr><th class="l">Stock</th><th>Price</th><th>1D</th><th>5D</th><th>1M</th><th>Vol×</th><th class="l">Signal</th><th class="l">Plan</th><th class="l" title="Same rules on this stock&#39;s last 2 years: win rate · average per trade (number of trades)">Backtest</th><th></th></tr></thead><tbody>'+
-    R.map(function(x){return '<tr><td class="l sym"><b>'+esc(x.t)+'</b><span>'+esc(x.n)+'</span></td><td><b>'+fp(x.c)+'</b></td><td class="'+cls(x.d1)+'">'+sp(x.d1)+'</td><td class="'+cls(x.d5)+'">'+sp(x.d5)+'</td><td class="'+cls(x.m1)+'">'+sp(x.m1)+'</td><td'+(x.rv>=1.5?' class="up"':'')+'>'+(x.rv!=null?x.rv.toFixed(1)+'×':'–')+'</td>'+
+  $('scrList').innerHTML='<table class="scrt"><thead><tr><th class="l">Stock</th><th>Price</th><th>1D</th><th>5D</th><th>1M</th><th>Vol×</th><th title="Swing score 0-100">Score</th><th title="Relative strength rating 1-99 vs the screened stocks">RS</th><th class="l">Signal</th><th class="l">Plan</th><th class="l" title="Same rules on this stock&#39;s last 2 years: win rate · average per trade (number of trades)">Backtest</th><th></th></tr></thead><tbody>'+
+    R.map(function(x){return '<tr><td class="l sym"><b>'+esc(x.t)+'</b><span>'+esc(x.n)+'</span></td><td><b>'+fp(x.c)+'</b></td><td class="'+cls(x.d1)+'">'+sp(x.d1)+'</td><td class="'+cls(x.d5)+'">'+sp(x.d5)+'</td><td class="'+cls(x.m1)+'">'+sp(x.m1)+'</td><td'+(x.rv>=1.5?' class="up"':'')+'>'+(x.rv!=null?x.rv.toFixed(1)+'×':'–')+'</td><td><b class="scb '+(x.sc>=60?'up':x.sc<45?'dn':'')+'">'+(x.sc!=null?x.sc:'–')+'</b></td><td'+(x.rs>=80?' class="up"':'')+'>'+(x.rs!=null?x.rs:'–')+'</td>'+
       '<td class="l hzc">'+chips(x)+'</td><td class="l pl">'+plan(x)+'</td><td class="l dim" title="Same rules on this stock\'s last 2 years: win rate, average per trade (trades)">'+bt(x)+'</td><td>'+add(x)+'</td></tr>'}).join('')+'</tbody></table>';
   $('scrCards').innerHTML=R.map(function(x){return '<div class="stk"><div class="s-head"><div class="s-name"><b>'+esc(x.t)+'</b><span>'+esc(x.n)+'</span></div>'+add(x)+'</div>'+
-    '<div class="s-main"><div><b>'+fp(x.c)+'</b><span class="chg '+cls(x.d1)+'">'+sp(x.d1)+'</span></div><span class="dim" style="font-size:12.5px">5D '+sp(x.d5)+' · 1M '+sp(x.m1)+(x.rv!=null?' · Vol '+x.rv.toFixed(1)+'×':'')+'</span></div>'+
+    '<div class="s-main"><div><b>'+fp(x.c)+'</b><span class="chg '+cls(x.d1)+'">'+sp(x.d1)+'</span></div><span class="dim" style="font-size:12.5px">Score <b>'+(x.sc!=null?x.sc:'–')+'</b> · RS '+(x.rs!=null?x.rs:'–')+' · 5D '+sp(x.d5)+' · 1M '+sp(x.m1)+(x.rv!=null?' · Vol '+x.rv.toFixed(1)+'×':'')+'</span></div>'+
     '<div class="s-hz">'+chips(x)+'</div><div class="s-plan">'+plan(x)+'</div><div class="s-meta">Backtest (2 yrs): '+bt(x)+' win rate · avg · trades</div></div>'}).join('');
 }
 $('scrTabs').onclick=function(e){var b=e.target.closest('[data-t]');if(!b)return;scrTab=b.dataset.t;try{localStorage.setItem('stocksScrTab',scrTab)}catch(x){}scrRender()};
@@ -848,7 +880,14 @@ $('scr').addEventListener('click',function(e){var b=e.target.closest('[data-add]
   if(STOCKS&&STOCKS.some(function(s){return s.symbol===sym}))return;
   commit(function(l){if(!l.some(function(s){return s.symbol===sym}))l.push({symbol:sym,target:null,note:'From the daily screen',added:today()});return l},'Wishlist: add '+sym,b,$('scrMsg'),function(){
     waitFor[sym]=Date.now();render();scrRender();toast(sym+' added to your wishlist ✓ Prices will appear in a minute or two.');watchPrices()})});
-function loadScreen(){return getJSON('screener.json').then(function(d){SCR=d&&d.items?d:null;scrRender()},function(){SCR=null;scrRender()})}
+document.addEventListener('click',function(e){
+  var a=e.target.closest('[data-acct]');if(a){var f=a.closest('.psz').querySelector('.acctf');f.hidden=!f.hidden;return}
+  var sv=e.target.closest('.acS');if(sv){var box=sv.closest('.acctf'),A2=parseFloat(box.querySelector('.acA').value),R2=parseFloat(box.querySelector('.acR').value);
+    if(!(A2>0)){box.querySelector('.acA').focus();return}sset('stocksAcct',{acct:A2,risk:R2>0?R2:1});if(cur)detail(cur,true)}});
+function loadScreen(){
+  var m=getJSON('market.json').then(function(x){setMarket(x)},function(){setMarket(null)});
+  var s2=getJSON('screener.json').then(function(d){SCR=d&&d.items?d:null},function(){SCR=null});
+  return Promise.all([m,s2]).then(function(){HCACHE={};render();scrRender()})}
 function load(btn){
   if(btn)btn.classList.add('loading');busyLoad=true;setTimeout(function(){busyLoad=false},20000);
   return Promise.all([getJSON('stocks.json'),getJSON('prices.json')]).then(function(r){
