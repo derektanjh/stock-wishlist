@@ -111,6 +111,11 @@ h2{font-size:16px;margin:0 0 2px}
 .swx,.swb{font-size:12.5px;color:var(--text2);margin:6px 0}.swb{padding:6px 8px;border-radius:8px;background:var(--soft)}
 .swd summary{cursor:pointer;font-size:12.5px;color:var(--accent);font-weight:600;margin-top:4px}
 @media (max-width:900px){.swg{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.scrt td.pl{font-size:12.5px;color:var(--text2);white-space:nowrap}.scrt td.pl b{color:var(--text)}
+.addb{font:inherit;font-size:13px;font-weight:700;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--soft);color:var(--accent);cursor:pointer}
+.addb[disabled]{color:var(--good);cursor:default}
+.s-plan{font-size:12.5px;color:var(--text2);margin-top:6px;font-variant-numeric:tabular-nums}.s-plan b{color:var(--text)}
+#scr .s-hz{margin-top:6px}
 .hztip{font-size:13.5px;margin:0 0 12px;padding:8px 12px;border-radius:10px;background:var(--soft)}
 .s-hz{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 td.hzc .sig{display:block;width:max-content;font-size:11px;padding:1px 7px;margin:1px 0}
@@ -254,6 +259,15 @@ footer{max-width:1280px;margin:0 auto;padding:0 16px calc(28px + env(safe-area-i
   <div class="tile"><div class="k">Watching</div><div class="v skel" id="a3">0</div><div class="d" id="a3d">Stocks on your wishlist</div></div>
 </div>
 
+<div class="card" id="scr">
+  <div class="card-h"><div><h2>Today's screen · US stocks</h2><div class="note" id="scrSub">Loading the daily screen…</div></div>
+    <div class="tabs" role="tablist" id="scrTabs"><button role="tab" type="button" data-t="setup" aria-selected="true">Swing setups</button><button role="tab" type="button" data-t="watch">Pullback watch</button><button role="tab" type="button" data-t="hot">Hot movers</button></div></div>
+  <div class="note" id="scrHelp" style="margin:-4px 0 8px"></div>
+  <div class="scroll tbl" id="scrList"></div>
+  <div class="cards" id="scrCards"></div>
+  <p class="msg" id="scrMsg"></p>
+</div>
+
 <div class="card">
   <div class="card-h"><div><h2>Wishlist</h2><div class="note"><span class="only-d">Click a stock for its chart, trendline and your target.</span><span class="only-m">Tap a stock for its chart, trendline and your target.</span></div></div>
     <div class="tabs" role="tablist" id="rangeTabs"><span class="tl only-d">Trend over</span><button role="tab" type="button" data-r="3M">3M</button><button role="tab" type="button" data-r="6M">6M</button><button role="tab" type="button" data-r="1Y" aria-selected="true">1Y</button><button role="tab" type="button" data-r="2Y">2Y</button></div></div>
@@ -330,6 +344,7 @@ footer{max-width:1280px;margin:0 auto;padding:0 16px calc(28px + env(safe-area-i
 
 <script src="portal.js" defer></script>
 <script src="indicators.js"></script>
+<script src="analysis.js"></script>
 <script>
 /* ---------- config ---------- */
 var host=location.hostname;
@@ -357,15 +372,6 @@ var pT;function page(t,ok){var m=$('pmsg');clearTimeout(pT);m.innerHTML=t||'';m.
 function toast(msg){var t=$('toast');t.textContent=msg;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(function(){t.style.display='none'},4200)}
 
 /* ---------- analysis ---------- */
-function reg(v){ // least squares on ln(price) vs trading-day index
-  var n=v.length,sx=0,sy=0,sxx=0,sxy=0,i,y=v.map(Math.log);
-  for(i=0;i<n;i++){sx+=i;sy+=y[i];sxx+=i*i;sxy+=i*y[i]}
-  var d=n*sxx-sx*sx;if(n<3||!d)return null;
-  var b=(n*sxy-sx*sy)/d,a=(sy-b*sx)/n,ss=0,st=0,my=sy/n;
-  for(i=0;i<n;i++){var r=y[i]-(a+b*i);ss+=r*r;st+=(y[i]-my)*(y[i]-my)}
-  var s=Math.sqrt(ss/Math.max(1,n-2));
-  return {a:a,b:b,s:s,r2:st?1-ss/st:0,at:function(i){return Math.exp(a+b*i)}};
-}
 function sma(v,k){var o=new Array(v.length).fill(null),s=0;for(var i=0;i<v.length;i++){s+=v[i];if(i>=k)s-=v[i-k];if(i>=k-1)o[i]=s/k}return o}
 function rsi(v,k){if(v.length<=k)return null;var g=0,l=0,i;for(i=1;i<=k;i++){var d=v[i]-v[i-1];if(d>0)g+=d;else l-=d}g/=k;l/=k;for(i=k+1;i<v.length;i++){var e=v[i]-v[i-1];g=(g*(k-1)+Math.max(e,0))/k;l=(l*(k-1)+Math.max(-e,0))/k}return l===0?100:100-100/(1+g/l)}
 function back(c,days){return c.length>days?c[c.length-1-days][1]:null}
@@ -419,7 +425,6 @@ var ACTIVE=(function(){var a=sget(INDKEY);return Array.isArray(a)?a.filter(funct
 if(!sget('stocksIndSwing')){if(ACTIVE.indexOf('swing')<0)ACTIVE.unshift('swing');sset(INDKEY,ACTIVE);sset('stocksIndSwing',1)}
 function isOn(id){return ACTIVE.indexOf(id)>-1}
 function setInd(id,on){ACTIVE=ACTIVE.filter(function(x){return x!==id});if(on)ACTIVE.push(id);sset(INDKEY,ACTIVE)}
-function barsOf(rows,intra){var B={t:[],o:[],h:[],l:[],c:[],v:[],intra:!!intra};rows.forEach(function(r){var c=r[1];B.t.push(r[0]);B.c.push(c);B.o.push(r[2]!=null?r[2]:c);B.h.push(r[3]!=null?Math.max(r[3],c):c);B.l.push(r[4]!=null?Math.min(r[4],c):c);B.v.push(r[5]||0)});return B}
 function sliceB(B,off){var o={intra:B.intra};['t','o','h','l','c','v'].forEach(function(k){o[k]=B[k].slice(off)});return o}
 function sliceR(R,off){var o={};for(var k in R)o[k]=R[k];
   ['lines','dots'].forEach(function(k){if(R[k])o[k]=R[k].map(function(x){var y={};for(var j in x)y[j]=x[j];y.d=x.d.slice(off);return y})});
@@ -626,96 +631,6 @@ function intraView(A,rk){
 var dRange=null,indOpen=false;
 function indColor(id){var d=IND.BY[id];if(!d||!d.calc)return 'var(--l-trend)';try{var R=d.calc({t:['2000-01-01'],o:[1],h:[1],l:[1],c:[1],v:[1]});var L=(R.lines||[])[0]||(R.dots||[])[0]||(R.fills||[])[0]||(R.hlines||[])[0];return L&&L.c||'var(--muted)'}catch(e){return 'var(--muted)'}}
 // technical rating: a vote across moving averages and oscillators on the daily prices (like TradingView's summary, calculated here)
-/* ---------- short-term and long-term outlook (calculated here from daily prices; not advice) ---------- */
-var HCACHE={};
-function horizons(A){
-  var key=A.s.symbol+'|'+A.c.length+'|'+A.last;if(HCACHE[key])return HCACHE[key];
-  var B=barsOf(A.c,false),n=B.c.length,c=B.c[n-1],L=function(a){return a[n-1]},P=function(a,k){return a[n-1-(k||1)]};
-  function line(id,i){return IND.BY[id].calc(B).lines[i||0].d}
-  function grade(xs){var sc=xs.length?xs.reduce(function(a,x){return a+x.v},0)/xs.length:0;
-    return {score:sc,label:sc>0.5?'Strong buy':sc>0.15?'Buy':sc<-0.5?'Strong sell':sc<-0.15?'Sell':'Neutral',k:sc>0.15?'buy':sc<-0.15?'down':'watch',checks:xs}}
-  var S=[],Lg=[];
-  if(n>=35){
-    var r=line('rsi');if(L(r)!=null){var rv=L(r),up=rv>P(r);
-      S.push(rv<30?{v:1,t:'RSI '+rv.toFixed(0)+': oversold, often bounces from here'}:rv>70?{v:-1,t:'RSI '+rv.toFixed(0)+': overbought, prone to pull back'}:rv>=50&&up?{v:1,t:'RSI '+rv.toFixed(0)+' and rising: momentum building'}:rv<50&&!up?{v:-1,t:'RSI '+rv.toFixed(0)+' and falling: momentum fading'}:{v:0,t:'RSI '+rv.toFixed(0)+': neutral'})}
-    var mc=IND.BY.macd.calc(B),m=mc.lines[0].d,sg=mc.lines[1].d,hh=mc.hist[0].d;if(L(m)!=null&&L(sg)!=null){
-      var cross=[1,2,3].some(function(k){return (P(m,k)-P(sg,k))*(L(m)-L(sg))<0});
-      S.push(L(m)>L(sg)&&L(hh)>=P(hh)?{v:1,t:cross?'MACD just crossed above its signal line':'MACD above its signal line and strengthening'}:L(m)<L(sg)&&L(hh)<=P(hh)?{v:-1,t:cross?'MACD just crossed below its signal line':'MACD below its signal line and weakening'}:{v:0,t:'MACD flattening near its signal line'})}
-    var st=IND.BY.stoch.calc(B).lines,k=L(st[0].d),d=L(st[1].d);if(k!=null&&d!=null)
-      S.push(k<20&&k>d?{v:1,t:'Stochastic turning up from oversold'}:k>80&&k<d?{v:-1,t:'Stochastic turning down from overbought'}:k<20?{v:0,t:'Stochastic oversold, not turned up yet'}:k>80?{v:0,t:'Stochastic overbought, still rising'}:{v:0,t:'Stochastic in the middle ('+k.toFixed(0)+')'});
-    var e9=L(IND.ema(B.c,9)),e21=L(IND.ema(B.c,21));if(e9!=null&&e21!=null)
-      S.push(c>e9&&c>e21&&e9>e21?{v:1,t:'Above its 9- and 21-day averages, which point up'}:c<e9&&c<e21&&e9<e21?{v:-1,t:'Below its 9- and 21-day averages, which point down'}:{v:0,t:'Mixed against its 9- and 21-day averages'});
-    var bb=IND.BY.bb.calc(B).lines,bu=L(bb[0].d),bl=L(bb[2].d);if(bu!=null)
-      S.push(c<bl?{v:1,t:'Below the lower Bollinger band: stretched down, bounce likely'}:c>bu?{v:-1,t:'Above the upper Bollinger band: stretched up'}:{v:0,t:'Inside its Bollinger bands'});
-    var su=IND.BY.supertrend.calc(B).lines;if(L(su[0].d)!=null||L(su[1].d)!=null)
-      S.push(L(su[0].d)!=null?{v:1,t:'Supertrend is up'}:{v:-1,t:'Supertrend is down'});
-  }
-  if(n>=60){
-    var s200=L(IND.sma(B.c,200)),s50=L(IND.sma(B.c,50));
-    if(s200!=null){Lg.push(c>s200?{v:1,t:'Above its 200-day average ('+pct(c/s200-1,0)+')'}:{v:-1,t:'Below its 200-day average ('+pct(c/s200-1,0)+')'});
-      Lg.push(s50>s200?{v:1,t:'Golden cross: 50-day average above the 200-day'}:{v:-1,t:'Death cross: 50-day average below the 200-day'});
-      var s200a=IND.sma(B.c,200),old=P(s200a,20);if(old!=null)Lg.push(s200>old?{v:1,t:'200-day average is rising'}:{v:-1,t:'200-day average is falling'})}
-    else if(s50!=null)Lg.push(c>s50?{v:1,t:'Above its 50-day average (under 200 days of history)'}:{v:-1,t:'Below its 50-day average (under 200 days of history)'});
-    var y=B.c.slice(-252),f=y.length>=120?reg(y):null;if(f){var ann=Math.exp(f.b*252)-1;
-      Lg.push(ann>=0.1&&f.r2>=0.3?{v:1,t:'1-year trendline rising '+pct(ann,0)+' a year'}:ann<=-0.1&&f.r2>=0.3?{v:-1,t:'1-year trendline falling '+pct(ann,0)+' a year'}:{v:0,t:'1-year trend mostly sideways ('+pct(ann,0)+'/yr)'})}
-    var ic=IND.BY.ichimoku.calc(B).lines,sa=L(ic[3].d),sb=L(ic[4].d);if(sa!=null&&sb!=null)
-      Lg.push(c>Math.max(sa,sb)?{v:1,t:'Above the Ichimoku cloud'}:c<Math.min(sa,sb)?{v:-1,t:'Below the Ichimoku cloud'}:{v:0,t:'Inside the Ichimoku cloud (undecided)'});
-    var ax=IND.BY.adx.calc(B).lines,adx=L(ax[0].d);if(adx!=null)
-      Lg.push(adx>=25?(L(ax[1].d)>L(ax[2].d)?{v:1,t:'Strong uptrend (ADX '+adx.toFixed(0)+')'}:{v:-1,t:'Strong downtrend (ADX '+adx.toFixed(0)+')'}):{v:0,t:'No strong trend (ADX '+adx.toFixed(0)+')'});
-    var hi=Math.max.apply(null,B.h.slice(-252)),dd=c/hi-1;
-    Lg.push(dd>-0.1?{v:1,t:'Near its 52-week high ('+pct(dd,0)+')'}:dd<-0.35?{v:-1,t:'Far below its 52-week high ('+pct(dd,0)+')'}:{v:0,t:pct(dd,0)+' from its 52-week high'});
-    if(A.tgt)Lg.push(c<=A.tgt?{v:1,t:'At or under your target of '+fp(A.tgt)}:{v:0,t:'Needs a '+pct(1-A.tgt/c,0).replace('+','')+' drop to reach your target of '+fp(A.tgt)});
-  }
-  var gs=grade(S),gl=grade(Lg),SAY={
-    s:{'Strong buy':'Momentum and timing look good for buying now.','Buy':'Leaning positive for the next few weeks.','Neutral':'No clear short-term edge, so no rush.','Sell':'Short-term momentum is weak; waiting may get a better price.','Strong sell':'Short-term momentum is clearly negative; better to wait.'},
-    l:{'Strong buy':'A strong, healthy long-term uptrend.','Buy':'The long-term trend is positive.','Neutral':'The long-term trend is mixed or sideways.','Sell':'The long-term trend is weakening.','Strong sell':'In a long-term downtrend; riskier to hold.'}};
-  gs.say=SAY.s[gs.label];gl.say=SAY.l[gl.label];
-  var tip=gl.k==='buy'&&gs.k==='buy'?'Trend and timing agree: both point up.':gl.k==='buy'&&gs.k==='down'?'Good long-term trend, poor timing: consider waiting for the dip to finish, or buying in small parts.':gl.k==='buy'?'Healthy long-term trend; short-term timing is neutral.':gl.k==='down'&&gs.k==='buy'?'A short-term bounce inside a long-term downtrend: be careful chasing it.':gl.k==='down'?'The long-term trend is down; most investors wait for it to turn first.':gs.k==='buy'?'Short-term momentum is up, but the long-term trend hasn\'t confirmed yet.':'No strong signal either way right now.';
-  return HCACHE[key]={short:gs,long:gl,tip:tip,ok:S.length>0||Lg.length>0};
-}
-/* ---------- swing trade plan (1-4 weeks), from daily prices; maths on past prices, not advice ---------- */
-var SWCACHE={};
-function swingPlan(A){
-  var key=A.s.symbol+'|'+A.c.length+'|'+A.last+'|'+(A.tgt||'');if(SWCACHE[key])return SWCACHE[key];
-  var B=barsOf(A.c,false),n=B.c.length;if(n<60)return SWCACHE[key]={none:true,why:'Needs at least 60 days of prices.'};
-  var tr=B.h.map(function(h,i){var l=B.l[i];if(!i)return h-l;var pc=B.c[i-1];return Math.max(h-l,Math.abs(h-pc),Math.abs(l-pc))});
-  var atrA=IND.BY.atr.calc(B).lines[0].d,e21=IND.ema(B.c,21),s50=IND.sma(B.c,50),s200=IND.sma(B.c,200),rsiA=IND.BY.rsi.calc(B).lines[0].d,vavg=IND.sma(B.v,20);
-  var hasVol=B.v.some(function(v){return v>0});
-  function hiPrev(i,k){var m=-Infinity;for(var j=Math.max(0,i-k);j<i;j++)m=Math.max(m,B.h[j]);return m}
-  function loLast(i,k){var m=Infinity;for(var j=Math.max(0,i-k+1);j<=i;j++)m=Math.min(m,B.l[j]);return m}
-  function trendUp(i){var s=s50[i]!=null?s50:e21;return s[i]!=null&&s[i-10]!=null&&B.c[i]>s[i]&&s[i]>s[i-10]}
-  function setupAt(i){
-    if(i<25||atrA[i]==null||rsiA[i]==null||rsiA[i-1]==null)return null;
-    var c=B.c[i],up=trendUp(i),above200=s200[i]==null||c>s200[i];
-    if(up&&c>hiPrev(i,20)&&(!hasVol||!vavg[i]||B.v[i]>1.3*vavg[i]))return {type:'breakout',name:'Breakout above the 20-day high'+(hasVol?' on strong volume':''),grade:above200?'A':'B'};
-    if(up&&e21[i]!=null&&Math.abs(c-e21[i])<=0.75*atrA[i]&&rsiA[i]>=38&&rsiA[i]<=58&&rsiA[i]>rsiA[i-1]&&c>B.c[i-1])return {type:'pullback',name:'Pullback to the 21-day average, turning up',grade:above200?'A':'B'};
-    if(s200[i]!=null&&c>s200[i]&&rsiA[i-1]<30&&rsiA[i]>rsiA[i-1])return {type:'bounce',name:'Oversold bounce above the 200-day average',grade:'C'};
-    return null;
-  }
-  function levels(i,entry){ // stop under the recent swing low, sized by volatility; targets by risk multiple and resistance
-    var a=atrA[i],stop=Math.max(loLast(i,10)-0.25*a,entry-2.5*a);if(entry-stop<a)stop=entry-a;
-    var R=entry-stop,res=hiPrev(i+1,60),t1=res>entry+1*R&&res<entry+3*R?res:entry+1.5*R,t2=Math.max(entry+3*R,t1+R);
-    return {entry:entry,stop:stop,t1:t1,t2:t2,R:R,atr:a};
-  }
-  // backtest the same rules on this stock's history: enter at the close, stop or Target 1 within 20 trading days
-  var bt={n:0,win:0,loss:0,time:0,ret:0},i=30;
-  while(i<n-1){var su=setupAt(i);if(!su){i++;continue}
-    var L=levels(i,B.c[i]),out=null,j;
-    for(j=i+1;j<=Math.min(n-1,i+20);j++){if(B.l[j]<=L.stop){out=['loss',L.stop];break}if(B.h[j]>=L.t1){out=['win',L.t1];break}}
-    if(!out){if(j>n-1&&i+20>n-1)break;out=['time',B.c[Math.min(n-1,i+20)]];j=Math.min(n-1,i+20)}
-    bt.n++;bt[out[0]]++;bt.ret+=out[1]/B.c[i]-1;i=j+1}
-  bt.avg=bt.n?bt.ret/bt.n:null;bt.winRate=bt.n?bt.win/bt.n:null;
-  // today
-  var t=n-1,c=B.c[t],a=atrA[t],su=setupAt(t),P={atr:a,atrPct:a/c,move2w:a*Math.sqrt(10)/c,bt:bt,e21:e21[t],up:trendUp(t),hiBreak:hiPrev(t+1,20)};
-  if(su){var L0=levels(t,c);P.action='Buy setup';P.k=su.grade==='C'?'watch':'buy';P.setup=su;P.plan=L0;P.say=su.name+' · grade '+su.grade+(su.grade==='C'?' (against the bigger trend, riskier)':'')+'.'}
-  else if(P.up&&e21[t]!=null){
-    if(c>e21[t]+2*a){P.action='Extended, wait';P.k='watch';P.say='Up '+pct(c/e21[t]-1,0)+' over its 21-day average: chasing here is risky. Wait for a pullback.'}
-    else{P.action='Wait for pullback';P.k='watch';P.say='Uptrend, but no entry signal today. The buy zone is near the 21-day average.'}
-    var zl=e21[t]-0.5*a,zh=e21[t]+0.5*a,zm=(zl+zh)/2;P.zone=[zl,zh];P.plan=levels(t,zm);P.plan.entry=zm;P.planned=true;
-  }else{P.action='No setup';P.k='down';P.say='The trend isn\'t up, so there\'s no swing buy. Watch for a close above '+fp(P.hiBreak)+' (20-day high)'+(hasVol?' on strong volume':'')+'.'}
-  if(P.plan){var p=P.plan;P.plan.rr1=(p.t1-p.entry)/p.R;P.plan.rr2=(p.t2-p.entry)/p.R;P.trail=e21[t]}
-  return SWCACHE[key]=P;
-}
 function swingHTML(A,H){
   var P=swingPlan(A),g=H.short;
   if(P.none)return '<div class="hz watch"><div class="hzh"><div><b>Swing trade</b><span>1 to 4 weeks</span></div><em>–</em></div><div class="hzs">'+P.why+'</div></div>';
@@ -740,6 +655,7 @@ function horizonHTML(A){var H=horizons(A);if(!H.ok)return '';
     g.checks.map(function(x){return '<li class="'+(x.v>0?'p':x.v<0?'n':'z')+'">'+esc(x.t)+'</li>'}).join('')+'</ul></div>'}
   var P=swingPlan(A),up=H.long.k==='buy',dn=H.long.k==='down',act=P.action||'';
   var tip=act==='Buy setup'?(up?'Trend and timing agree: a swing entry today inside a healthy long-term trend.':dn?'A swing setup against a falling long-term trend: if you take it, use a smaller size and respect the stop.':'A swing setup today; the long-term trend is neutral, so keep to the stop.')
+    :act==='Wait for turn-up'?'It has pulled back far enough; wait for a day that closes higher before entering.'
     :act==='Wait for pullback'?(up?'Healthy trend: be patient and buy in the zone rather than chasing.':'No entry yet: wait for the buy zone.')
     :act==='Extended, wait'?'Strong move already: wait for it to cool off towards the 21-day average before entering.'
     :dn?'Long-term trend down and no swing setup: staying out is usually wiser for now.':'No swing setup right now: watch the breakout level.';
@@ -898,6 +814,41 @@ function getJSON(name){
 }
 function plain(name){return fetch(name+'?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json()})}
 var busyLoad=false;
+/* ---------- daily screen (screener.json, written by .github/workflows/screener.yml) ---------- */
+var SCR=null,scrTab=(function(){try{return localStorage.getItem('stocksScrTab')||'setup'}catch(e){return 'setup'}})();
+var SCRHELP={setup:'Stocks with a swing entry signal on the last close (pullback, breakout or oversold bounce), best grades first. Plan levels use the same rules as your wishlist.',
+  watch:'Strong uptrends (long-term Buy or better) waiting to pull back into their buy zone, strongest 1-month momentum first. Set an alert near the zone.',
+  hot:'Biggest moves on unusually high volume on the last session (Vol× = volume vs its 20-day average): what traders are focused on. Not all are good entries.'};
+function scrRows(){if(!SCR)return [];var it=SCR.items||[];
+  if(scrTab==='setup')return it.filter(function(x){return x.act==='Buy setup'}).sort(function(a,b){return (a.grade||'Z').localeCompare(b.grade||'Z')||(b.ls-a.ls)||((b.bt?b.bt.avg:-99)-(a.bt?a.bt.avg:-99))}).slice(0,40);
+  if(scrTab==='watch')return it.filter(function(x){return (x.act==='Wait for pullback'||x.act==='Wait for turn-up')&&x.lk==='buy'}).sort(function(a,b){return b.m1-a.m1}).slice(0,30);
+  return it.slice().sort(function(a,b){return (b.rv||1)*Math.abs(b.d1)-(a.rv||1)*Math.abs(a.d1)}).slice(0,25)}
+function sp(v){return v==null?'–':(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1)+'%'}
+function scrRender(){
+  document.querySelectorAll('#scrTabs [data-t]').forEach(function(b){var n=SCR?(function(t){var s=scrTab;scrTab=t;var c=scrRows().length;scrTab=s;return c})(b.dataset.t):0;b.setAttribute('aria-selected',b.dataset.t===scrTab);b.textContent={setup:'Swing setups',watch:'Pullback watch',hot:'Hot movers'}[b.dataset.t]+(SCR?' ('+n+')':'')});
+  $('scrHelp').textContent=SCRHELP[scrTab];
+  if(!SCR){$('scrSub').textContent='The first screen appears after the next US session, by about 4 pm Malaysia time.';$('scrList').innerHTML='';$('scrCards').innerHTML='';return}
+  var d=new Date(SCR.session+'T12:00:00');$('scrSub').textContent='After the '+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+d.getDate()+' '+MON[d.getMonth()]+' close · '+SCR.screened+' of '+SCR.of+' stocks screened · updated '+ago(SCR.generated);
+  var R=scrRows(),have={};(STOCKS||[]).forEach(function(s){have[s.symbol]=1});
+  if(!R.length){var none='<p class="empty">'+(scrTab==='setup'?'No swing entry signals on the last close. Check the Pullback watch tab for stocks to keep an eye on.':'Nothing here today.')+'</p>';$('scrList').innerHTML=none;$('scrCards').innerHTML=none;return}
+  var plan=function(x){var p=x.plan;if(!p)return 'Watch for a close above <b>'+fp(x.brk)+'</b>';
+    return (x.act==='Buy setup'?'Entry <b>'+fp(p.e)+'</b>':'Buy zone <b>'+fp(p.zl)+'–'+fp(p.zh)+'</b>')+' · Stop <b>'+fp(p.s)+'</b> · T1 <b>'+fp(p.t1)+'</b> · T2 <b>'+fp(p.t2)+'</b> · R:R '+(p.rr!=null?p.rr.toFixed(1):'–')};
+  var add=function(x){return '<button type="button" class="addb" data-add="'+esc(x.t)+'" title="'+(have[x.t]?'On your wishlist':'Add to wishlist')+'"'+(have[x.t]?' disabled>✓':'>＋')+'</button>'};
+  var chips=function(x){return '<span class="sig '+x.k+'">'+esc(x.act)+(x.grade?' · '+x.grade:'')+'</span><span class="sig '+x.lk+'">Long: '+esc(x.lg)+'</span>'};
+  var bt=function(x){return x.bt?x.bt.w.toFixed(0)+'% · '+sp(x.bt.avg)+' ('+x.bt.n+')':'–'};
+  $('scrList').innerHTML='<table class="scrt"><thead><tr><th class="l">Stock</th><th>Price</th><th>1D</th><th>5D</th><th>1M</th><th>Vol×</th><th class="l">Signal</th><th class="l">Plan</th><th class="l" title="Same rules on this stock&#39;s last 2 years: win rate · average per trade (number of trades)">Backtest</th><th></th></tr></thead><tbody>'+
+    R.map(function(x){return '<tr><td class="l sym"><b>'+esc(x.t)+'</b><span>'+esc(x.n)+'</span></td><td><b>'+fp(x.c)+'</b></td><td class="'+cls(x.d1)+'">'+sp(x.d1)+'</td><td class="'+cls(x.d5)+'">'+sp(x.d5)+'</td><td class="'+cls(x.m1)+'">'+sp(x.m1)+'</td><td'+(x.rv>=1.5?' class="up"':'')+'>'+(x.rv!=null?x.rv.toFixed(1)+'×':'–')+'</td>'+
+      '<td class="l hzc">'+chips(x)+'</td><td class="l pl">'+plan(x)+'</td><td class="l dim" title="Same rules on this stock\'s last 2 years: win rate, average per trade (trades)">'+bt(x)+'</td><td>'+add(x)+'</td></tr>'}).join('')+'</tbody></table>';
+  $('scrCards').innerHTML=R.map(function(x){return '<div class="stk"><div class="s-head"><div class="s-name"><b>'+esc(x.t)+'</b><span>'+esc(x.n)+'</span></div>'+add(x)+'</div>'+
+    '<div class="s-main"><div><b>'+fp(x.c)+'</b><span class="chg '+cls(x.d1)+'">'+sp(x.d1)+'</span></div><span class="dim" style="font-size:12.5px">5D '+sp(x.d5)+' · 1M '+sp(x.m1)+(x.rv!=null?' · Vol '+x.rv.toFixed(1)+'×':'')+'</span></div>'+
+    '<div class="s-hz">'+chips(x)+'</div><div class="s-plan">'+plan(x)+'</div><div class="s-meta">Backtest (2 yrs): '+bt(x)+' win rate · avg · trades</div></div>'}).join('');
+}
+$('scrTabs').onclick=function(e){var b=e.target.closest('[data-t]');if(!b)return;scrTab=b.dataset.t;try{localStorage.setItem('stocksScrTab',scrTab)}catch(x){}scrRender()};
+$('scr').addEventListener('click',function(e){var b=e.target.closest('[data-add]');if(!b||b.disabled)return;var sym=b.dataset.add;
+  if(STOCKS&&STOCKS.some(function(s){return s.symbol===sym}))return;
+  commit(function(l){if(!l.some(function(s){return s.symbol===sym}))l.push({symbol:sym,target:null,note:'From the daily screen',added:today()});return l},'Wishlist: add '+sym,b,$('scrMsg'),function(){
+    waitFor[sym]=Date.now();render();scrRender();toast(sym+' added to your wishlist ✓ Prices will appear in a minute or two.');watchPrices()})});
+function loadScreen(){return getJSON('screener.json').then(function(d){SCR=d&&d.items?d:null;scrRender()},function(){SCR=null;scrRender()})}
 function load(btn){
   if(btn)btn.classList.add('loading');busyLoad=true;setTimeout(function(){busyLoad=false},20000);
   return Promise.all([getJSON('stocks.json'),getJSON('prices.json')]).then(function(r){
@@ -935,6 +886,7 @@ var rt;addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(funct
   render();
   if(loaded&&window.portalReady)window.portalReady();
   load().then(autoRefresh); // then ask for the latest prices if they're stale during US market hours
+  scrRender();loadScreen();
 })();
 </script>
 </body>

@@ -1,8 +1,8 @@
 /* Offline + slow-line support for Stock Wishlist.
    Pages and data: try the network first, fall back to the saved copy if the line is slow or down.
    Icons, styles, scripts: show the saved copy instantly and refresh it in the background. */
-var CACHE='stocks-v3';
-var SHELL=['./','index.html','portal.css','portal.js','indicators.js','stocks.json','prices.json','stocks-icon.svg','stocks-icon-180.png','stocks-icon-192.png','stocks-icon-512.png','manifest.webmanifest'];
+var CACHE='stocks-v4';
+var SHELL=['./','index.html','portal.css','portal.js','indicators.js','analysis.js','stocks.json','prices.json','stocks-icon.svg','stocks-icon-180.png','stocks-icon-192.png','stocks-icon-512.png','manifest.webmanifest'];
 var WAIT=3500; // ms to wait for the network before using the saved copy
 
 self.addEventListener('install',function(e){

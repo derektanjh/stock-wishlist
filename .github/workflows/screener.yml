@@ -1,0 +1,60 @@
+name: Daily screener
+
+on:
+  schedule:
+    # After each US session (Tue-Sat UTC), ~9 am-4 pm Malaysia time, well before the next US open.
+    # Each run fetches at most 44 tickers so Tiingo's free limit (~50 requests an hour) holds.
+    - cron: "23 1-7 * * 2-6"
+    # Last run of the morning: write the screen even if a few tickers are missing (e.g. a US holiday)
+    - cron: "23 8 * * 2-6"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Write the screen now, even if some tickers aren't updated yet"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: screener
+  cancel-in-progress: false
+
+jobs:
+  screen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Restore price history
+        uses: actions/cache/restore@v4
+        with:
+          path: .screener-cache
+          key: screener-${{ github.run_id }}
+          restore-keys: screener-
+      - name: Screen
+        env:
+          TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
+        run: node scripts/screener.mjs ${{ (github.event.schedule == '23 8 * * 2-6' || inputs.force) && '--force' || '' }}
+      - name: Save price history
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .screener-cache
+          key: screener-${{ github.run_id }}
+      - name: Commit screener.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          [ -f screener.json ] || exit 0
+          git add screener.json
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Update daily screen"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((i * 5))
+          done
+          exit 1
